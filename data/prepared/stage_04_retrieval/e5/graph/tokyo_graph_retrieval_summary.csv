@@ -1,0 +1,9 @@
+method,benchmark_tier,cohort,query_type,query_count,ranked_candidate_count,graph_node_count,graph_edge_count,user_node_count,event_node_count,poi_node_count,category_node_count,trail_node_count,next_edge_count,dense_seed_count,expansion_hops,expansion_direction,rrf_k,expansion_traversal_count,unique_expanded_candidate_count,min_expanded_candidates_per_query,max_expanded_candidates_per_query,mean_expanded_candidates_per_query,queries_with_no_new_neighbor
+graph,core,main,relational_after,107,5086,9030,19942,108,5106,1553,228,2035,3071,5,1,symmetric_previous_next,60,1196,869,5,13,8.121495327102803,4
+graph,core,main,semantic,105,4996,9030,19942,108,5106,1553,228,2035,3071,5,1,symmetric_previous_next,60,1127,953,6,11,9.076190476190476,0
+graph,core,main,temporal_spatial,108,5106,9030,19942,108,5106,1553,228,2035,3071,5,1,symmetric_previous_next,60,1154,1005,6,14,9.305555555555555,0
+graph,stress_test,main,relational_between,98,4816,9030,19942,108,5106,1553,228,2035,3071,5,1,symmetric_previous_next,60,1167,781,5,14,7.969387755102041,10
+graph,core,high_memory_load,relational_after,35,2760,9030,19942,108,5106,1553,228,2035,3071,5,1,symmetric_previous_next,60,387,289,5,12,8.257142857142858,1
+graph,core,high_memory_load,semantic,34,2690,9030,19942,108,5106,1553,228,2035,3071,5,1,symmetric_previous_next,60,366,316,6,11,9.294117647058824,0
+graph,core,high_memory_load,temporal_spatial,35,2760,9030,19942,108,5106,1553,228,2035,3071,5,1,symmetric_previous_next,60,374,334,6,13,9.542857142857143,0
+graph,stress_test,high_memory_load,relational_between,33,2646,9030,19942,108,5106,1553,228,2035,3071,5,1,symmetric_previous_next,60,394,292,5,14,8.848484848484848,1

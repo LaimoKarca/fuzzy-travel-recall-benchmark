@@ -1,4 +1,4 @@
-"""Run deterministic per-user dense retrieval with multilingual MiniLM."""
+"""Run deterministic per-user dense retrieval with a pinned local encoder."""
 
 from __future__ import annotations
 
@@ -17,15 +17,12 @@ import pandas as pd
 from pandas.errors import EmptyDataError, ParserError
 
 from src.model_download import (
-    EXPECTED_DIMENSION,
-    EXPECTED_MAX_SEQUENCE_LENGTH,
-    MODEL_ID,
-    MODEL_REVISION,
     ModelDownloadError,
     manifest_path_for_model_dir,
     sha256_file,
     validate_model_installation,
 )
+from src.model_specs import model_spec_for_id
 
 
 METHOD = "vector"
@@ -243,7 +240,9 @@ def _validate_relationships(
             )
 
 
-def _count_truncations(model: Any, texts: list[str]) -> np.ndarray:
+def _count_truncations(
+    model: Any, texts: list[str], max_sequence_length: int
+) -> np.ndarray:
     truncated = np.zeros(len(texts), dtype=bool)
     tokenizer = getattr(model, "tokenizer", None)
     if tokenizer is None:
@@ -267,12 +266,14 @@ def _count_truncations(model: Any, texts: list[str]) -> np.ndarray:
         if len(input_ids) != len(batch):
             raise VectorRetrievalError("tokenizer returned an unexpected batch size")
         truncated[start : start + len(batch)] = [
-            len(ids) > EXPECTED_MAX_SEQUENCE_LENGTH for ids in input_ids
+            len(ids) > max_sequence_length for ids in input_ids
         ]
     return truncated
 
 
-def _encode(model: Any, texts: list[str], label: str) -> np.ndarray:
+def _encode(
+    model: Any, texts: list[str], label: str, embedding_dimension: int
+) -> np.ndarray:
     try:
         values = model.encode(
             texts,
@@ -286,7 +287,7 @@ def _encode(model: Any, texts: list[str], label: str) -> np.ndarray:
     except Exception as exc:
         raise VectorRetrievalError(f"could not encode {label}: {exc}") from exc
     embeddings = np.asarray(values, dtype=np.float32)
-    expected_shape = (len(texts), EXPECTED_DIMENSION)
+    expected_shape = (len(texts), embedding_dimension)
     if embeddings.shape != expected_shape:
         raise VectorRetrievalError(
             f"{label} embeddings have shape {embeddings.shape}, expected {expected_shape}"
@@ -380,6 +381,10 @@ def _summary_rows(
     truncated_document_count: int,
     all_equal_queries: set[str],
     cohort: str,
+    model_id: str,
+    model_revision: str,
+    embedding_dimension: int,
+    max_sequence_length: int,
 ) -> list[dict[str, object]]:
     selected_mask = np.ones(len(queries), dtype=bool)
     if cohort == "high_memory_load":
@@ -396,12 +401,12 @@ def _summary_rows(
         rows.append(
             {
                 "method": METHOD,
-                "model_id": MODEL_ID,
-                "model_revision": MODEL_REVISION,
+                "model_id": model_id,
+                "model_revision": model_revision,
                 "device": DEVICE,
-                "embedding_dimension": EXPECTED_DIMENSION,
+                "embedding_dimension": embedding_dimension,
                 "batch_size": BATCH_SIZE,
-                "max_seq_length": EXPECTED_MAX_SEQUENCE_LENGTH,
+                "max_seq_length": max_sequence_length,
                 "benchmark_tier": selected["benchmark_tier"].iloc[0],
                 "cohort": cohort,
                 "query_type": query_type,
@@ -520,26 +525,53 @@ def retrieve_vector(
         model = loaded_model
     else:
         try:
+            model_spec = model_spec_for_id(str(model_manifest["model_id"]))
+        except (KeyError, ValueError) as exc:
+            raise VectorRetrievalError("model manifest contains an unsupported model ID") from exc
+        try:
             get_dimension = getattr(model, "get_embedding_dimension", None)
             if get_dimension is None:
                 get_dimension = model.get_sentence_embedding_dimension
-            if get_dimension() != EXPECTED_DIMENSION:
+            if get_dimension() != model_spec.embedding_dimension:
                 raise VectorRetrievalError("mock/provided model has the wrong dimension")
-            if int(model.max_seq_length) != EXPECTED_MAX_SEQUENCE_LENGTH:
+            if int(model.max_seq_length) != model_spec.max_sequence_length:
                 raise VectorRetrievalError("mock/provided model has the wrong max sequence length")
         except AttributeError as exc:
             raise VectorRetrievalError("provided model has an invalid interface") from exc
 
-    document_texts = documents["event_text"].tolist()
-    core_texts = core["query_text"].tolist()
-    stress_texts = stress["query_text"].tolist()
-    document_truncated = _count_truncations(model, document_texts)
-    core_truncated = _count_truncations(model, core_texts)
-    stress_truncated = _count_truncations(model, stress_texts)
+    try:
+        model_spec = model_spec_for_id(str(model_manifest["model_id"]))
+    except (KeyError, ValueError) as exc:
+        raise VectorRetrievalError("model manifest contains an unsupported model ID") from exc
 
-    event_embeddings = _encode(model, document_texts, "event")
-    core_embeddings = _encode(model, core_texts, "core query")
-    stress_embeddings = _encode(model, stress_texts, "between query")
+    document_texts = [
+        model_spec.document_prefix + text for text in documents["event_text"].tolist()
+    ]
+    core_texts = [
+        model_spec.query_prefix + text for text in core["query_text"].tolist()
+    ]
+    stress_texts = [
+        model_spec.query_prefix + text for text in stress["query_text"].tolist()
+    ]
+    document_truncated = _count_truncations(
+        model, document_texts, model_spec.max_sequence_length
+    )
+    core_truncated = _count_truncations(
+        model, core_texts, model_spec.max_sequence_length
+    )
+    stress_truncated = _count_truncations(
+        model, stress_texts, model_spec.max_sequence_length
+    )
+
+    event_embeddings = _encode(
+        model, document_texts, "event", model_spec.embedding_dimension
+    )
+    core_embeddings = _encode(
+        model, core_texts, "core query", model_spec.embedding_dimension
+    )
+    stress_embeddings = _encode(
+        model, stress_texts, "between query", model_spec.embedding_dimension
+    )
 
     event_index = _event_index(documents)
     core_index = _query_index(core)
@@ -561,6 +593,10 @@ def retrieve_vector(
                 int(document_truncated.sum()),
                 core_equal,
                 cohort,
+                model_spec.model_id,
+                model_spec.revision,
+                model_spec.embedding_dimension,
+                model_spec.max_sequence_length,
             )
         )
         summary_rows.extend(
@@ -571,6 +607,10 @@ def retrieve_vector(
                 int(document_truncated.sum()),
                 stress_equal,
                 cohort,
+                model_spec.model_id,
+                model_spec.revision,
+                model_spec.embedding_dimension,
+                model_spec.max_sequence_length,
             )
         )
     summary_frame = pd.DataFrame(summary_rows, columns=SUMMARY_COLUMNS)
@@ -616,9 +656,11 @@ def retrieve_vector(
             "batch_size": BATCH_SIZE,
             "device": DEVICE,
             "dtype": DTYPE,
-            "embedding_dimension": EXPECTED_DIMENSION,
-            "max_seq_length": EXPECTED_MAX_SEQUENCE_LENGTH,
+            "document_prefix": model_spec.document_prefix,
+            "embedding_dimension": model_spec.embedding_dimension,
+            "max_seq_length": model_spec.max_sequence_length,
             "normalize_embeddings": True,
+            "query_prefix": model_spec.query_prefix,
             "ranking_depth": "all events belonging to the query user",
             "similarity": "cosine via normalized-vector dot product",
         },

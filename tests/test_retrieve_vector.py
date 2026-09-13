@@ -17,6 +17,7 @@ from src.model_download import (
     REQUIRED_MODEL_FILES,
 )
 from src.retrieve_vector import VectorRetrievalError, retrieve_vector
+from src.model_specs import E5_SMALL_SPEC
 
 
 def _sha256(path: Path) -> str:
@@ -52,6 +53,17 @@ class _MockModel:
                 vector[2] = 1.0
             rows.append(vector)
         return np.stack(rows)
+
+
+class _RecordingE5Model(_MockModel):
+    max_seq_length = E5_SMALL_SPEC.max_sequence_length
+
+    def __init__(self) -> None:
+        self.encoded_batches: list[list[str]] = []
+
+    def encode(self, texts: list[str], **kwargs: object) -> np.ndarray:
+        self.encoded_batches.append(list(texts))
+        return super().encode(texts, **kwargs)
 
 
 class VectorRetrievalTests(unittest.TestCase):
@@ -105,6 +117,35 @@ class VectorRetrievalTests(unittest.TestCase):
         for frame, path in zip((documents, core, stress), paths, strict=True):
             frame.to_csv(path, index=False, encoding="utf-8")
         return paths
+
+    def _e5_model(self, root: Path) -> Path:
+        model_dir = (
+            root
+            / "models"
+            / "sentence-transformers"
+            / E5_SMALL_SPEC.directory_name
+        )
+        hashes = {}
+        for relative in E5_SMALL_SPEC.required_files:
+            path = model_dir / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(relative, encoding="utf-8")
+            hashes[relative] = _sha256(path)
+        manifest = {
+            "backend": "torch",
+            "document_prefix": E5_SMALL_SPEC.document_prefix,
+            "embedding_dimension": E5_SMALL_SPEC.embedding_dimension,
+            "files": hashes,
+            "license": E5_SMALL_SPEC.license,
+            "max_seq_length": E5_SMALL_SPEC.max_sequence_length,
+            "model_id": E5_SMALL_SPEC.model_id,
+            "query_prefix": E5_SMALL_SPEC.query_prefix,
+            "revision": E5_SMALL_SPEC.revision,
+        }
+        (root / "models" / E5_SMALL_SPEC.manifest_filename).write_text(
+            json.dumps(manifest), encoding="utf-8"
+        )
+        return model_dir
 
     def test_embeddings_indexes_rankings_and_truncation(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -172,6 +213,38 @@ class VectorRetrievalTests(unittest.TestCase):
             with self.assertRaisesRegex(VectorRetrievalError, "absent"):
                 retrieve_vector(documents, core, stress, model_dir, output, model=_MockModel())
             self.assertFalse(output.exists())
+
+    def test_e5_applies_query_and_passage_prefixes_without_rewriting_inputs(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            documents, core, stress = self._inputs(root)
+            original_documents = documents.read_bytes()
+            original_core = core.read_bytes()
+            model_dir = self._e5_model(root)
+            model = _RecordingE5Model()
+            output = root / "e5-vector"
+
+            retrieve_vector(
+                documents, core, stress, model_dir, output, model=model
+            )
+
+            self.assertTrue(
+                all(text.startswith("passage: ") for text in model.encoded_batches[0])
+            )
+            self.assertTrue(
+                all(text.startswith("query: ") for text in model.encoded_batches[1])
+            )
+            self.assertTrue(
+                all(text.startswith("query: ") for text in model.encoded_batches[2])
+            )
+            self.assertEqual(documents.read_bytes(), original_documents)
+            self.assertEqual(core.read_bytes(), original_core)
+            manifest = json.loads(
+                (output / "tokyo_vector_run_manifest.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(manifest["model"]["id"], E5_SMALL_SPEC.model_id)
+            self.assertEqual(manifest["parameters"]["query_prefix"], "query: ")
+            self.assertEqual(manifest["parameters"]["document_prefix"], "passage: ")
 
 
 if __name__ == "__main__":

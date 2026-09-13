@@ -36,6 +36,11 @@ METHOD = "graph"
 DENSE_SEED_COUNT = 5
 EXPANSION_HOPS = 1
 EXPANSION_DIRECTION = "symmetric_previous_next"
+NEXT_ONLY_EXPANSION_DIRECTION = "next_only"
+VALID_EXPANSION_DIRECTIONS = {
+    EXPANSION_DIRECTION,
+    NEXT_ONLY_EXPANSION_DIRECTION,
+}
 RRF_K = 60
 
 NODES_FILENAME = "tokyo_graph_nodes.csv"
@@ -165,6 +170,14 @@ def _validate_manifest(vector_dir: Path) -> tuple[dict[str, Any], Path]:
         raise GraphRetrievalError(f"could not parse Vector run manifest: {exc}") from exc
     if manifest.get("method") != "vector" or not isinstance(manifest.get("outputs"), dict):
         raise GraphRetrievalError("Vector run manifest has an invalid structure")
+    model = manifest.get("model")
+    if (
+        not isinstance(model, dict)
+        or not isinstance(model.get("id"), str)
+        or not isinstance(model.get("revision"), str)
+        or not isinstance(model.get("manifest_sha256"), str)
+    ):
+        raise GraphRetrievalError("Vector run manifest has invalid model metadata")
 
     required = {
         EVENT_EMBEDDINGS_FILENAME,
@@ -353,12 +366,21 @@ def _validate_vector_rankings(
     return rankings.sort_values(["user_id", "query_id", "rank"], kind="stable").reset_index(drop=True)
 
 
-def _traverse_neighbors(graph: Any, event_id: str) -> list[tuple[str, str]]:
+def _traverse_neighbors(
+    graph: Any,
+    event_id: str,
+    expansion_direction: str = EXPANSION_DIRECTION,
+) -> list[tuple[str, str]]:
+    if expansion_direction not in VALID_EXPANSION_DIRECTIONS:
+        raise GraphRetrievalError(
+            f"unsupported expansion direction: {expansion_direction}"
+        )
     node_id = f"event::{event_id}"
     neighbors: list[tuple[str, str]] = []
-    for predecessor in graph.predecessors(node_id):
-        if graph.edges[predecessor, node_id].get("relation") == "NEXT":
-            neighbors.append((predecessor.removeprefix("event::"), "PREVIOUS"))
+    if expansion_direction == EXPANSION_DIRECTION:
+        for predecessor in graph.predecessors(node_id):
+            if graph.edges[predecessor, node_id].get("relation") == "NEXT":
+                neighbors.append((predecessor.removeprefix("event::"), "PREVIOUS"))
     for successor in graph.successors(node_id):
         if graph.edges[node_id, successor].get("relation") == "NEXT":
             neighbors.append((successor.removeprefix("event::"), "NEXT"))
@@ -369,7 +391,12 @@ def _retrieve_dataset(
     graph: Any,
     query_index: pd.DataFrame,
     vector_rankings: pd.DataFrame,
+    expansion_direction: str = EXPANSION_DIRECTION,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    if expansion_direction not in VALID_EXPANSION_DIRECTIONS:
+        raise GraphRetrievalError(
+            f"unsupported expansion direction: {expansion_direction}"
+        )
     audit_rows: list[dict[str, object]] = []
     ranking_rows: list[dict[str, object]] = []
     statistic_rows: list[dict[str, object]] = []
@@ -411,7 +438,9 @@ def _retrieve_dataset(
             seed_event_id = str(seed.retrieved_event_id)
             seed_ids.add(seed_event_id)
             record(int(seed.rank), seed_event_id, "SELF", seed_event_id)
-            for neighbor, relation in _traverse_neighbors(graph, seed_event_id):
+            for neighbor, relation in _traverse_neighbors(
+                graph, seed_event_id, expansion_direction
+            ):
                 record(int(seed.rank), seed_event_id, relation, neighbor)
 
         scored: list[tuple[str, float]] = []
@@ -460,6 +489,7 @@ def _summary_rows(
     audit: pd.DataFrame,
     statistics: pd.DataFrame,
     cohort: str,
+    expansion_direction: str = EXPANSION_DIRECTION,
 ) -> list[dict[str, object]]:
     selected = queries
     if cohort == "high_memory_load":
@@ -490,7 +520,7 @@ def _summary_rows(
                 "next_edge_count": next_edge_count,
                 "dense_seed_count": DENSE_SEED_COUNT,
                 "expansion_hops": EXPANSION_HOPS,
-                "expansion_direction": EXPANSION_DIRECTION,
+                "expansion_direction": expansion_direction,
                 "rrf_k": RRF_K,
                 "expansion_traversal_count": len(selected_audit),
                 "unique_expanded_candidate_count": int(selected_statistics["unique_expanded_count"].sum()),
@@ -560,7 +590,7 @@ def retrieve_graph(
     events_path = Path(events_path)
     vector_dir = Path(vector_dir)
     output_dir = Path(output_dir)
-    _vector_manifest, vector_manifest_path = _validate_manifest(vector_dir)
+    vector_manifest, vector_manifest_path = _validate_manifest(vector_dir)
     events_source = _read_csv(events_path, "events")
     try:
         built = build_travel_graph(events_source)
@@ -672,6 +702,11 @@ def retrieve_graph(
         "between_vector_rankings": vector_dir / VECTOR_BETWEEN_RANKINGS_FILENAME,
     }
     manifest_base = {
+        "dense_seed_model": {
+            "id": vector_manifest["model"]["id"],
+            "manifest_sha256": vector_manifest["model"]["manifest_sha256"],
+            "revision": vector_manifest["model"]["revision"],
+        },
         "inputs": {
             key: {"path": str(path.resolve()), "sha256": sha256_file(path)}
             for key, path in sorted(input_paths.items())

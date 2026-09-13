@@ -15,8 +15,15 @@ from main import (
     DEFAULT_GRAPH_OUTPUT_DIR,
     DEFAULT_FLAT_OUTPUT_DIR,
     DEFAULT_EVALUATION_OUTPUT_DIR,
+    DEFAULT_MINILM_EVALUATION_DIR,
     DEFAULT_CORE_QUERIES_INPUT,
     DEFAULT_STRESS_QUERIES_INPUT,
+    DEFAULT_E5_EVALUATION_DIR,
+    DEFAULT_ENCODER_COMPARISON_DIR,
+    DEFAULT_E5_VECTOR_OUTPUT_DIR,
+    DEFAULT_E5_GRAPH_OUTPUT_DIR,
+    DEFAULT_E5_NEXT_ONLY_GRAPH_OUTPUT_DIR,
+    DEFAULT_GRAPH_DIRECTION_EVALUATION_DIR,
     build_parser,
 )
 
@@ -56,8 +63,13 @@ class MainCliDefaultsTests(unittest.TestCase):
     def test_download_models_uses_project_model_directory(self) -> None:
         args = build_parser().parse_args(["download-models"])
 
-        self.assertEqual(args.output_dir, DEFAULT_MODEL_DIR)
-        self.assertEqual(args.output_dir.name, "paraphrase-multilingual-MiniLM-L12-v2")
+        self.assertEqual(args.model, "multilingual-e5-small")
+        self.assertIsNone(args.output_dir)
+
+        e5 = build_parser().parse_args(
+            ["download-models", "--model", "multilingual-e5-small"]
+        )
+        self.assertEqual(e5.model, "multilingual-e5-small")
 
     def test_retrieve_vector_uses_shared_documents_and_local_model(self) -> None:
         args = build_parser().parse_args(["retrieve-vector"])
@@ -86,6 +98,31 @@ class MainCliDefaultsTests(unittest.TestCase):
         self.assertEqual(args.graph_dir, DEFAULT_GRAPH_OUTPUT_DIR)
         self.assertEqual(args.output_dir, DEFAULT_EVALUATION_OUTPUT_DIR)
         self.assertEqual(args.output_dir.name, "stage_05_evaluation")
+
+    def test_compare_encoder_runs_uses_frozen_and_formal_directories(self) -> None:
+        args = build_parser().parse_args(["compare-encoder-runs"])
+
+        self.assertEqual(args.minilm_evaluation_dir, DEFAULT_MINILM_EVALUATION_DIR)
+        self.assertEqual(args.e5_evaluation_dir, DEFAULT_E5_EVALUATION_DIR)
+        self.assertEqual(args.output_dir, DEFAULT_ENCODER_COMPARISON_DIR)
+
+    def test_next_only_graph_uses_e5_candidate_directories(self) -> None:
+        args = build_parser().parse_args(["retrieve-graph-next-only"])
+
+        self.assertEqual(args.events, DEFAULT_QUERY_INPUT)
+        self.assertEqual(args.vector_dir, DEFAULT_E5_VECTOR_OUTPUT_DIR)
+        self.assertEqual(args.output_dir, DEFAULT_E5_NEXT_ONLY_GRAPH_OUTPUT_DIR)
+
+    def test_graph_direction_evaluation_uses_candidate_directories(self) -> None:
+        args = build_parser().parse_args(["evaluate-graph-direction"])
+
+        self.assertEqual(args.queries, DEFAULT_CORE_QUERIES_INPUT)
+        self.assertEqual(args.e5_vector_dir, DEFAULT_E5_VECTOR_OUTPUT_DIR)
+        self.assertEqual(args.symmetric_graph_dir, DEFAULT_E5_GRAPH_OUTPUT_DIR)
+        self.assertEqual(
+            args.next_only_graph_dir, DEFAULT_E5_NEXT_ONLY_GRAPH_OUTPUT_DIR
+        )
+        self.assertEqual(args.output_dir, DEFAULT_GRAPH_DIRECTION_EVALUATION_DIR)
 
 
 if __name__ == "__main__":

@@ -9,7 +9,19 @@ import numpy as np
 import pandas as pd
 
 from src.model_download import sha256_file
+from src.model_specs import E5_SMALL_SPEC, MINILM_SPEC
 from src.retrieve_graph import GraphRetrievalError, retrieve_graph
+from src.retrieve_graph_next_only import (
+    AUDIT_FILENAME as NEXT_ONLY_AUDIT_FILENAME,
+    RANKINGS_FILENAME as NEXT_ONLY_RANKINGS_FILENAME,
+    retrieve_graph_next_only,
+)
+from src.evaluate_graph_direction import (
+    DIAGNOSTICS_FILENAME as DIRECTION_DIAGNOSTICS_FILENAME,
+    GraphDirectionEvaluationError,
+    METRICS_FILENAME as DIRECTION_METRICS_FILENAME,
+    evaluate_graph_direction,
+)
 from src.retrieve_vector import (
     BETWEEN_EMBEDDINGS_FILENAME,
     BETWEEN_INDEX_FILENAME,
@@ -24,7 +36,12 @@ from src.retrieve_vector import (
 
 
 class GraphRetrievalTests(unittest.TestCase):
-    def _fixture(self, root: Path) -> tuple[Path, Path]:
+    def _fixture(
+        self,
+        root: Path,
+        model_spec=MINILM_SPEC,
+        core_query_type: str = "semantic",
+    ) -> tuple[Path, Path]:
         event_rows = []
         for position in range(1, 7):
             event_rows.append(
@@ -70,7 +87,7 @@ class GraphRetrievalTests(unittest.TestCase):
             }
         )
         core_index = pd.DataFrame(
-            [{"row_index": 0, "query_id": "q-core", "user_id": "u1", "benchmark_tier": "core", "query_type": "semantic", "is_high_memory_load": False}]
+            [{"row_index": 0, "query_id": "q-core", "user_id": "u1", "benchmark_tier": "core", "query_type": core_query_type, "is_high_memory_load": False}]
         )
         between_index = pd.DataFrame(
             [{"row_index": 0, "query_id": "q-between", "user_id": "u1", "benchmark_tier": "stress_test", "query_type": "relational_between", "is_high_memory_load": False}]
@@ -99,7 +116,7 @@ class GraphRetrievalTests(unittest.TestCase):
                 ]
             )
 
-        rankings("q-core", "core", "semantic").to_csv(
+        rankings("q-core", "core", core_query_type).to_csv(
             vector_dir / CORE_RANKINGS_FILENAME, index=False
         )
         rankings("q-between", "stress_test", "relational_between").to_csv(
@@ -122,6 +139,11 @@ class GraphRetrievalTests(unittest.TestCase):
         )
         manifest = {
             "method": "vector",
+            "model": {
+                "id": model_spec.model_id,
+                "revision": model_spec.revision,
+                "manifest_sha256": "0" * 64,
+            },
             "outputs": {
                 name: sha256_file(vector_dir / name) for name in output_names
             },
@@ -155,6 +177,12 @@ class GraphRetrievalTests(unittest.TestCase):
             self.assertEqual(set(rankings["method"]), {"graph"})
             self.assertTrue(rankings["score"].is_monotonic_decreasing)
             self.assertAlmostEqual(rankings.iloc[0]["score"], 2 / 61)
+            graph_manifest = json.loads(
+                (output / "tokyo_graph_run_manifest.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(
+                graph_manifest["dense_seed_model"]["id"], MINILM_SPEC.model_id
+            )
 
     def test_vector_hash_mismatch_fails_without_outputs(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -166,6 +194,83 @@ class GraphRetrievalTests(unittest.TestCase):
             with self.assertRaisesRegex(GraphRetrievalError, "hash mismatch"):
                 retrieve_graph(events, vector_dir, output)
             self.assertFalse(output.exists())
+
+    def test_next_only_ablation_uses_self_and_next_only(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            events, vector_dir = self._fixture(
+                root, E5_SMALL_SPEC, "relational_after"
+            )
+            output = root / "next-only"
+            summary = retrieve_graph_next_only(events, vector_dir, output)
+
+            self.assertEqual(summary.query_count, 1)
+            self.assertEqual(summary.ranking_count, 6)
+            audit = pd.read_csv(output / NEXT_ONLY_AUDIT_FILENAME)
+            self.assertEqual(set(audit["relation"]), {"SELF", "NEXT"})
+            self.assertNotIn("PREVIOUS", set(audit["relation"]))
+            rankings = pd.read_csv(output / NEXT_ONLY_RANKINGS_FILENAME)
+            self.assertEqual(rankings["rank"].tolist(), list(range(1, 7)))
+
+    def test_evaluates_e5_graph_direction_on_relational_subset(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            events, vector_dir = self._fixture(
+                root, E5_SMALL_SPEC, "relational_after"
+            )
+            symmetric = root / "symmetric"
+            next_only = root / "next-only"
+            retrieve_graph(events, vector_dir, symmetric)
+            retrieve_graph_next_only(events, vector_dir, next_only)
+            queries = root / "queries.csv"
+            pd.DataFrame(
+                [
+                    {
+                        "query_id": "q-core",
+                        "user_id": "u1",
+                        "benchmark_tier": "core",
+                        "query_type": "relational_after",
+                        "query_text": "Which Park did I visit after ?湔?3?",
+                        "target_event_id": "e4",
+                        "target_venue_id": "v4",
+                        "target_name": "?湔?4",
+                        "cue_previous_event_id": "e3",
+                        "cue_previous_place": "?湔?3",
+                        "cue_next_event_id": "e5",
+                        "cue_next_place": "?湔?5",
+                        "is_high_memory_load": False,
+                    }
+                ]
+            ).to_csv(queries, index=False, encoding="utf-8")
+
+            output = root / "evaluation"
+            summary = evaluate_graph_direction(
+                queries, vector_dir, symmetric, next_only, output
+            )
+            self.assertEqual(summary.query_count, 1)
+            metrics = pd.read_csv(output / DIRECTION_METRICS_FILENAME)
+            self.assertEqual(metrics["configuration"].tolist(), [
+                "E5 Dense", "E5 Graph Symmetric", "E5 Graph NEXT-only"
+            ])
+            diagnostics = pd.read_csv(output / DIRECTION_DIAGNOSTICS_FILENAME)
+            self.assertEqual(
+                diagnostics.loc[
+                    diagnostics["configuration"].eq("E5 Graph NEXT-only"),
+                    "target_first_reached_as_previous",
+                ].iloc[0],
+                0,
+            )
+
+            with (next_only / NEXT_ONLY_AUDIT_FILENAME).open("a", encoding="utf-8") as stream:
+                stream.write("modified")
+            failed_output = root / "failed-evaluation"
+            with self.assertRaisesRegex(
+                GraphDirectionEvaluationError, "hash mismatch"
+            ):
+                evaluate_graph_direction(
+                    queries, vector_dir, symmetric, next_only, failed_output
+                )
+            self.assertFalse(failed_output.exists())
 
 
 if __name__ == "__main__":

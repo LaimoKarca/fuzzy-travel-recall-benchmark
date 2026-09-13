@@ -32,6 +32,18 @@ dataset documentation and any applicable terms.
 Model weights are not committed to this repository. They can be downloaded
 and validated locally with `python main.py download-models`.
 
+## Multilingual E5-small model
+
+- Model: `intfloat/multilingual-e5-small`
+- Pinned candidate revision: `614241f622f53c4eeff9890bdc4f31cfecc418b3`
+- Model card: <https://huggingface.co/intfloat/multilingual-e5-small>
+- License: MIT License
+- License text: <https://opensource.org/license/mit>
+
+E5 model weights are not committed to this repository. The P0-1/P0-2
+candidate rerun downloads and validates them locally with
+`python main.py download-models --model multilingual-e5-small`.
+
 ## Python dependencies
 
 Python packages listed in `requirements.txt` are not vendored. Each package is

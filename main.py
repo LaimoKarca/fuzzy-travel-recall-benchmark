@@ -11,15 +11,22 @@ from src.prepare_events import EventPreparationError, prepare_events
 from src.generate_queries import QueryGenerationError, generate_queries
 from src.retrieve_flat import FlatRetrievalError, retrieve_flat
 from src.model_download import (
-    MODEL_DIRECTORY_NAME,
-    MODEL_ID,
-    MODEL_REVISION,
     ModelDownloadError,
     download_models,
 )
+from src.model_specs import DEFAULT_MODEL_KEY, E5_SMALL_SPEC, MODEL_SPECS
 from src.retrieve_vector import VectorRetrievalError, retrieve_vector
 from src.retrieve_graph import GraphRetrievalError, retrieve_graph
+from src.retrieve_graph_next_only import retrieve_graph_next_only
 from src.evaluate import EvaluationError, evaluate
+from src.evaluate_graph_direction import (
+    GraphDirectionEvaluationError,
+    evaluate_graph_direction,
+)
+from src.compare_encoder_runs import (
+    EncoderComparisonError,
+    compare_encoder_runs,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -32,12 +39,27 @@ DEFAULT_RETRIEVAL_OUTPUT_DIR = DEFAULT_PREPARED_ROOT / "stage_04_retrieval"
 DEFAULT_DOCUMENTS_INPUT = (
     DEFAULT_RETRIEVAL_OUTPUT_DIR / "common" / "tokyo_event_documents.csv"
 )
-DEFAULT_VECTOR_OUTPUT_DIR = DEFAULT_RETRIEVAL_OUTPUT_DIR / "vector"
-DEFAULT_GRAPH_OUTPUT_DIR = DEFAULT_RETRIEVAL_OUTPUT_DIR / "graph"
 DEFAULT_EVALUATION_OUTPUT_DIR = PROJECT_ROOT / "data" / "outputs" / "stage_05_evaluation"
 DEFAULT_FLAT_OUTPUT_DIR = DEFAULT_RETRIEVAL_OUTPUT_DIR / "flat"
-DEFAULT_MODEL_DIR = (
-    PROJECT_ROOT / "models" / "sentence-transformers" / MODEL_DIRECTORY_NAME
+DEFAULT_E5_MODEL_DIR = (
+    PROJECT_ROOT / "models" / "sentence-transformers" / E5_SMALL_SPEC.directory_name
+)
+DEFAULT_E5_RETRIEVAL_ROOT = DEFAULT_RETRIEVAL_OUTPUT_DIR / "e5"
+DEFAULT_E5_VECTOR_OUTPUT_DIR = DEFAULT_E5_RETRIEVAL_ROOT / "vector"
+DEFAULT_E5_GRAPH_OUTPUT_DIR = DEFAULT_E5_RETRIEVAL_ROOT / "graph"
+DEFAULT_E5_NEXT_ONLY_GRAPH_OUTPUT_DIR = DEFAULT_E5_RETRIEVAL_ROOT / "graph_next_only"
+DEFAULT_MODEL_DIR = DEFAULT_E5_MODEL_DIR
+DEFAULT_VECTOR_OUTPUT_DIR = DEFAULT_E5_VECTOR_OUTPUT_DIR
+DEFAULT_GRAPH_OUTPUT_DIR = DEFAULT_E5_GRAPH_OUTPUT_DIR
+DEFAULT_MINILM_EVALUATION_DIR = (
+    PROJECT_ROOT / "data" / "outputs" / "stage_05_evaluation_minilm_frozen"
+)
+DEFAULT_E5_EVALUATION_DIR = DEFAULT_EVALUATION_OUTPUT_DIR
+DEFAULT_ENCODER_COMPARISON_DIR = (
+    PROJECT_ROOT / "data" / "outputs" / "stage_05_encoder_sensitivity"
+)
+DEFAULT_GRAPH_DIRECTION_EVALUATION_DIR = (
+    PROJECT_ROOT / "data" / "outputs" / "stage_05_graph_direction_ablation"
 )
 DEFAULT_COHORT_INPUT = (
     DEFAULT_COHORT_OUTPUT_DIR
@@ -141,18 +163,24 @@ def build_parser() -> argparse.ArgumentParser:
 
     model_parser = subparsers.add_parser(
         "download-models",
-        help="Download and validate the pinned multilingual MiniLM model.",
+        help="Download and validate a pinned multilingual embedding model.",
+    )
+    model_parser.add_argument(
+        "--model",
+        choices=tuple(MODEL_SPECS),
+        default=DEFAULT_MODEL_KEY,
+        help=f"Pinned model key (default: {DEFAULT_MODEL_KEY})",
     )
     model_parser.add_argument(
         "--output-dir",
         type=Path,
-        default=DEFAULT_MODEL_DIR,
-        help=f"Local model directory (default: {DEFAULT_MODEL_DIR})",
+        default=None,
+        help="Local model directory (default depends on --model).",
     )
 
     vector_parser = subparsers.add_parser(
         "retrieve-vector",
-        help="Run per-user dense retrieval with the local multilingual MiniLM model.",
+        help="Run per-user dense retrieval with a validated local multilingual encoder.",
     )
     vector_parser.add_argument(
         "--documents",
@@ -208,6 +236,23 @@ def build_parser() -> argparse.ArgumentParser:
         help=f"Graph output directory (default: {DEFAULT_GRAPH_OUTPUT_DIR})",
     )
 
+    next_graph_parser = subparsers.add_parser(
+        "retrieve-graph-next-only",
+        help="Run the fixed E5 relational-after SELF+NEXT Graph ablation.",
+    )
+    next_graph_parser.add_argument(
+        "--events", type=Path, default=DEFAULT_QUERY_INPUT,
+        help=f"Canonical Main events CSV (default: {DEFAULT_QUERY_INPUT})",
+    )
+    next_graph_parser.add_argument(
+        "--vector-dir", type=Path, default=DEFAULT_E5_VECTOR_OUTPUT_DIR,
+        help=f"Validated E5 Vector directory (default: {DEFAULT_E5_VECTOR_OUTPUT_DIR})",
+    )
+    next_graph_parser.add_argument(
+        "--output-dir", type=Path, default=DEFAULT_E5_NEXT_ONLY_GRAPH_OUTPUT_DIR,
+        help=f"NEXT-only output directory (default: {DEFAULT_E5_NEXT_ONLY_GRAPH_OUTPUT_DIR})",
+    )
+
     evaluate_parser = subparsers.add_parser(
         "evaluate",
         help="Evaluate Flat, Vector, and Graph rankings and audit Graph cases.",
@@ -253,6 +298,54 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=DEFAULT_EVALUATION_OUTPUT_DIR,
         help=f"Stage 5 output directory (default: {DEFAULT_EVALUATION_OUTPUT_DIR})",
+    )
+
+    compare_parser = subparsers.add_parser(
+        "compare-encoder-runs",
+        help="Compare frozen MiniLM and formal E5 Core evaluation results.",
+    )
+    compare_parser.add_argument(
+        "--minilm-evaluation-dir",
+        type=Path,
+        default=DEFAULT_MINILM_EVALUATION_DIR,
+        help=f"Frozen MiniLM evaluation directory (default: {DEFAULT_MINILM_EVALUATION_DIR})",
+    )
+    compare_parser.add_argument(
+        "--e5-evaluation-dir",
+        type=Path,
+        default=DEFAULT_E5_EVALUATION_DIR,
+        help=f"Formal E5 evaluation directory (default: {DEFAULT_E5_EVALUATION_DIR})",
+    )
+    compare_parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=DEFAULT_ENCODER_COMPARISON_DIR,
+        help=f"Comparison output directory (default: {DEFAULT_ENCODER_COMPARISON_DIR})",
+    )
+
+    direction_parser = subparsers.add_parser(
+        "evaluate-graph-direction",
+        help="Compare E5 Dense, symmetric Graph, and NEXT-only Graph on relational-after.",
+    )
+    direction_parser.add_argument(
+        "--queries", type=Path, default=DEFAULT_CORE_QUERIES_INPUT,
+        help=f"Core queries CSV (default: {DEFAULT_CORE_QUERIES_INPUT})",
+    )
+    direction_parser.add_argument(
+        "--e5-vector-dir", type=Path, default=DEFAULT_E5_VECTOR_OUTPUT_DIR,
+        help=f"E5 Vector directory (default: {DEFAULT_E5_VECTOR_OUTPUT_DIR})",
+    )
+    direction_parser.add_argument(
+        "--symmetric-graph-dir", type=Path, default=DEFAULT_E5_GRAPH_OUTPUT_DIR,
+        help=f"E5 symmetric Graph directory (default: {DEFAULT_E5_GRAPH_OUTPUT_DIR})",
+    )
+    direction_parser.add_argument(
+        "--next-only-graph-dir", type=Path, default=DEFAULT_E5_NEXT_ONLY_GRAPH_OUTPUT_DIR,
+        help=f"E5 NEXT-only Graph directory (default: {DEFAULT_E5_NEXT_ONLY_GRAPH_OUTPUT_DIR})",
+    )
+    direction_parser.add_argument(
+        "--output-dir", type=Path, default=DEFAULT_GRAPH_DIRECTION_EVALUATION_DIR,
+        help=f"Directional evaluation directory (default: {DEFAULT_GRAPH_DIRECTION_EVALUATION_DIR})",
     )
 
     return parser
@@ -354,16 +447,23 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "download-models":
+        model_spec = MODEL_SPECS[args.model]
+        output_dir = args.output_dir or (
+            PROJECT_ROOT
+            / "models"
+            / "sentence-transformers"
+            / model_spec.directory_name
+        )
         try:
-            summary = download_models(args.output_dir)
+            summary = download_models(output_dir, model_name=args.model)
         except ModelDownloadError as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 1
 
         status = "downloaded and validated" if summary.downloaded else "already valid"
         print(f"Model {status}.")
-        print(f"Model: {MODEL_ID}")
-        print(f"Revision: {MODEL_REVISION}")
+        print(f"Model: {model_spec.model_id}")
+        print(f"Revision: {model_spec.revision}")
         print(f"Required files: {summary.file_count}")
         print(f"Model directory: {summary.model_dir.resolve()}")
         print(f"Manifest: {summary.manifest_path.resolve()}")
@@ -439,6 +539,29 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Output directory: {args.output_dir.resolve()}")
         return 0
 
+    if args.command == "retrieve-graph-next-only":
+        try:
+            summary = retrieve_graph_next_only(
+                args.events, args.vector_dir, args.output_dir
+            )
+        except GraphRetrievalError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+
+        print("E5 relational-after NEXT-only Graph retrieval completed.")
+        print(
+            f"Graph: {summary.node_count:,} nodes, {summary.edge_count:,} edges "
+            f"({summary.next_edge_count:,} NEXT edges)"
+        )
+        print(
+            f"Relational-after: {summary.query_count:,} queries, "
+            f"{summary.ranking_count:,} ranking rows, "
+            f"{summary.audit_count:,} audit rows "
+            f"({summary.high_load_query_count:,} high-load queries)"
+        )
+        print(f"Output directory: {args.output_dir.resolve()}")
+        return 0
+
     if args.command == "evaluate":
         try:
             summary = evaluate(
@@ -471,6 +594,70 @@ def main(argv: list[str] | None = None) -> int:
             f"worsened={summary.graph_worsened_count:,}"
         )
         print(f"Output directory: {args.output_dir.resolve()}")
+        return 0
+
+    if args.command == "compare-encoder-runs":
+        try:
+            summary = compare_encoder_runs(
+                args.minilm_evaluation_dir,
+                args.e5_evaluation_dir,
+                args.output_dir,
+            )
+        except EncoderComparisonError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+
+        print("MiniLM vs E5 comparison completed.")
+        print(
+            "Dense Core MRR: "
+            f"MiniLM={summary.minilm_dense_mrr:.4f}, "
+            f"E5={summary.e5_dense_mrr:.4f}, "
+            f"delta={summary.e5_dense_mrr - summary.minilm_dense_mrr:+.4f}"
+        )
+        print(
+            "Graph Core MRR: "
+            f"MiniLM={summary.minilm_graph_mrr:.4f}, "
+            f"E5={summary.e5_graph_mrr:.4f}, "
+            f"delta={summary.e5_graph_mrr - summary.minilm_graph_mrr:+.4f}"
+        )
+        print(
+            "Vector/Graph identical Top-1: "
+            f"MiniLM={summary.minilm_top1_identical_count}/{summary.core_query_count}, "
+            f"E5={summary.e5_top1_identical_count}/{summary.core_query_count}"
+        )
+        print(f"Output directory: {summary.output_dir.resolve()}")
+        return 0
+
+    if args.command == "evaluate-graph-direction":
+        try:
+            summary = evaluate_graph_direction(
+                args.queries,
+                args.e5_vector_dir,
+                args.symmetric_graph_dir,
+                args.next_only_graph_dir,
+                args.output_dir,
+            )
+        except GraphDirectionEvaluationError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+
+        print("E5 Graph directional ablation evaluation completed.")
+        print(
+            f"Relational-after: {summary.query_count:,} queries "
+            f"({summary.high_load_query_count:,} high-load)"
+        )
+        print(
+            f"MRR: Dense={summary.dense_mrr:.4f}, "
+            f"Symmetric={summary.symmetric_mrr:.4f}, "
+            f"NEXT-only={summary.next_only_mrr:.4f}"
+        )
+        print(
+            "NEXT-only vs Symmetric: "
+            f"improved={summary.next_only_improved_vs_symmetric:,}, "
+            f"unchanged={summary.next_only_unchanged_vs_symmetric:,}, "
+            f"worsened={summary.next_only_worsened_vs_symmetric:,}"
+        )
+        print(f"Output directory: {summary.output_dir.resolve()}")
         return 0
 
     return 2

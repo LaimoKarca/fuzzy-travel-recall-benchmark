@@ -1,0 +1,4 @@
+encoder,core_query_count,graph_improved_vs_dense,graph_unchanged_vs_dense,graph_worsened_vs_dense,target_first_reached_as_self,target_first_reached_as_previous,target_first_reached_as_next,target_not_expanded,structural_first_reach_count,structural_first_reach_rate,vector_graph_top1_identical_count
+MiniLM,320,5,289,26,295,1,6,18,7,0.0218750000,320
+E5,320,12,280,28,250,2,57,11,59,0.1843750000,320
+E5_minus_MiniLM,0,7,-9,2,-45,1,51,-7,52,0.1625000000,0

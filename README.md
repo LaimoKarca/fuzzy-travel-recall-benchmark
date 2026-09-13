@@ -249,27 +249,26 @@ They deliberately exclude Ground Truth; Stage 5 will join targets by
 by ascending `event_id`, so the output is reproducible even if input rows are
 reordered.
 
-## Step 4.2: run Vector retrieval
+## Step 4.2: run E5 Vector retrieval
 
 Download and validate the pinned model once:
 
 ```bash
-python main.py download-models
+python main.py download-models --model multilingual-e5-small
 ```
 
-The command downloads only the 12 safetensors, tokenizer, and Sentence
-Transformers files required for CPU inference. It fixes model revision
-`e8f8c211226b894fcb81acc59f3b34ba3efd5f42`, validates a local offline load,
-and writes per-file SHA-256 values to `models/model_manifest.json` plus the
-reference Python, OS, and package versions to
-`models/reference_runtime_manifest.json`. A valid existing installation is a
-no-op for model files; an incomplete or modified installation is reported
-without being overwritten.
+The command downloads only the safetensors, tokenizer, and Sentence
+Transformers files required for CPU inference. It fixes
+`intfloat/multilingual-e5-small` at revision
+`614241f622f53c4eeff9890bdc4f31cfecc418b3`, validates a local offline load,
+and writes per-file SHA-256 values to an E5-specific model manifest. A valid
+existing installation is a no-op; an incomplete or modified installation is
+reported without being overwritten.
 
 The model is stored under:
 
 ```text
-models/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2/
+models/sentence-transformers/multilingual-e5-small/
 ```
 
 Model weights are ignored by Git and must not be placed in `src`. The small
@@ -277,18 +276,21 @@ model manifest remains project metadata.
 
 Run Vector retrieval after Stage 4.1 has created the shared documents:
 
-```bash
-python main.py retrieve-vector
+```powershell
+python main.py retrieve-vector `
+  --model-dir models/sentence-transformers/multilingual-e5-small `
+  --output-dir data/prepared/stage_04_retrieval/e5/vector
 ```
 
 The retriever uses the local model only (`local_files_only=True`) on CPU with
-float32, batch size 32, the native 128-token limit, and normalized 384-dimensional
-embeddings. It does not use BM25 tokenization, prompts, fine-tuning, FAISS, a
-reranker, target fields, or structured cue fields. Cosine similarity is computed
-as a normalized-vector dot product against every event belonging to the query
-user. Exact ties use ascending `event_id`.
+float32, batch size 32, a 512-token limit, and normalized 384-dimensional
+embeddings. Documents receive the `passage: ` prefix and queries receive the
+`query: ` prefix without changing the source CSV text. It does not use BM25
+tokenization, fine-tuning, FAISS, a reranker, target fields, or structured cue
+fields. Cosine similarity is computed against every event belonging to the
+query user; exact ties use ascending `event_id`.
 
-Generated files in `data/prepared/stage_04_retrieval/vector`:
+Generated files in `data/prepared/stage_04_retrieval/e5/vector`:
 
 | File | Description |
 |---|---|
@@ -313,13 +315,15 @@ Ground Truth; the formal evaluator in Step 5 performs the controlled join.
 
 Run after Stage 4.2:
 
-```bash
-python main.py retrieve-graph
+```powershell
+python main.py retrieve-graph `
+  --vector-dir data/prepared/stage_04_retrieval/e5/vector `
+  --output-dir data/prepared/stage_04_retrieval/e5/graph
 ```
 
 The command accepts `--events`, `--vector-dir`, and `--output-dir`. It validates
 the Stage 4.2 run manifest and every referenced hash, then recomputes the dense
-rankings from the saved embeddings. It does not load MiniLM, encode text, read
+rankings from the saved E5 embeddings. It does not load the encoder, encode text, read
 query Ground Truth, or use structured query cues.
 
 `build_graph.py` creates a directed NetworkX graph with User, Event, POI,
@@ -335,7 +339,7 @@ the expansion rank. Dense and expansion ranks are combined with equal-weight
 RRF using `k=60`, while every event belonging to the query user remains in the
 final ranking.
 
-Generated files in `data/prepared/stage_04_retrieval/graph`:
+Generated files in `data/prepared/stage_04_retrieval/e5/graph`:
 
 | File | Description |
 |---|---|
@@ -385,15 +389,50 @@ Core Main results:
 | Method | MRR | Success@1 | Success@5 |
 |---|---:|---:|---:|
 | Flat / BM25 | 0.9338 | 0.8875 | 0.9938 |
-| Vector | 0.7908 | 0.6906 | 0.9344 |
-| Graph | 0.7883 | 0.6906 | 0.9281 |
+| E5 Dense | 0.7554 | 0.6188 | 0.9406 |
+| E5 Graph | 0.7539 | 0.6188 | 0.9344 |
 
-The fixed Graph configuration improves 7 of 418 target ranks relative to
-Vector, leaves 378 unchanged, and worsens 33. Of 396 targets present in the
-expansion list, 384 are existing dense seeds discovered as `SELF`; only 12 are
-first discovered through `PREVIOUS` or `NEXT`. These diagnostics do not support
-a general claim that Graph resolves repeated visits. Graph-minus-NEXT and
-post-result parameter tuning are intentionally left for future work.
+For the 320 Core queries, the fixed E5-seeded Graph configuration improves 12
+target ranks relative to E5 Dense, leaves 280 unchanged, and worsens 28.
+Fifty-nine targets are first reached through `PREVIOUS` or `NEXT`, compared
+with seven in the archived MiniLM sensitivity run, yet E5 Dense and E5 Graph
+still return the same Top-1 event for all 320 queries. Structural reachability
+therefore did not translate into decision-level gains under this fixed
+one-hop RRF configuration.
+
+## Encoder sensitivity archive (MiniLM versus E5)
+
+The original MiniLM formal evaluation is preserved under
+`data/outputs/stage_05_evaluation_minilm_frozen/`. The formal main evaluation
+now uses the retrieval-oriented `intfloat/multilingual-e5-small` encoder at immutable
+revision `614241f622f53c4eeff9890bdc4f31cfecc418b3`. E5 inputs follow the model
+contract: event documents receive the `passage: ` prefix and queries receive
+the `query: ` prefix. The original CSV text is not rewritten.
+
+```powershell
+python main.py download-models --model multilingual-e5-small
+python main.py retrieve-vector `
+  --model-dir models/sentence-transformers/multilingual-e5-small `
+  --output-dir data/prepared/stage_04_retrieval/e5/vector
+python main.py retrieve-graph `
+  --vector-dir data/prepared/stage_04_retrieval/e5/vector `
+  --output-dir data/prepared/stage_04_retrieval/e5/graph
+python main.py compare-encoder-runs
+```
+
+The comparison command validates both evaluation manifests, Ground Truth,
+encoder identity, Graph-to-Vector provenance, and source hashes. It writes a
+four-row Core metrics table, a Graph-diagnostic delta table, and a Markdown
+validation report. The published sensitivity artifacts are under
+`data/outputs/stage_05_encoder_sensitivity/`; they do not replace the formal
+three-configuration comparison.
+
+E5 produced `(5106, 384)`, `(320, 384)`, and
+`(98, 384)` event/Core/Between arrays with no truncations. Its Core Dense MRR
+was 0.7554 versus MiniLM's 0.7908. E5 Graph MRR was 0.7539 versus MiniLM
+Graph's 0.7883. E5 increased Core targets first reached through `NEXT` from 6
+to 57, but Vector and Graph retained identical Top-1 events for all 320 Core
+queries. MiniLM remains sensitivity evidence rather than a main-table method.
 
 ## Tests
 
@@ -429,6 +468,28 @@ The repository contains anonymized identifiers supplied by the upstream
 dataset. Do not attempt to re-identify individuals or combine the data with
 external sources for that purpose.
 
+### E5 relational-after NEXT-only ablation (P0-4)
+
+This exploratory ablation keeps E5, Top-5 dense seeds, one hop, equal-weight RRF,
+and `k=60` fixed. It changes only the expansion from `SELF + PREVIOUS + NEXT`
+to `SELF + NEXT` and evaluates the 107 `relational_after` Core queries.
+
+```powershell
+python main.py retrieve-graph-next-only
+python main.py evaluate-graph-direction
+```
+
+Retrieval artifacts are written to
+`data/prepared/stage_04_retrieval/e5/graph_next_only/`; the per-query
+comparison, metrics, diagnostics, manifest, validation report, and exploratory
+paired statistics are published under
+`data/outputs/stage_05_graph_direction_ablation/`. Symmetric Graph MRR is
+0.6304 and NEXT-only MRR is 0.6362; S@1 remains 0.4112, while S@5 changes from
+0.9346 to 0.9252. NEXT-only improves 6 queries, leaves 100 unchanged, and
+worsens 1; both directions first reach 55 targets structurally and neither
+changes any Top-1 event. These results are diagnostic and do not introduce a
+fourth main method.
+
 ## Data and model attribution
 
 The Tokyo check-ins originate from
@@ -449,9 +510,11 @@ Please cite the dataset paper when using these files:
 }
 ```
 
-Vector retrieval uses
-[`sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`](https://huggingface.co/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2),
-licensed under Apache-2.0. Its weights are not stored in Git.
+Formal Vector retrieval uses the MIT-licensed
+[`intfloat/multilingual-e5-small`](https://huggingface.co/intfloat/multilingual-e5-small).
+The archived sensitivity run used the Apache-2.0-licensed
+[`sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`](https://huggingface.co/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2).
+Neither model's weights are stored in Git.
 
 See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for attribution and
 license boundaries.

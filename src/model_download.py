@@ -1,4 +1,4 @@
-"""Download and validate the fixed multilingual MiniLM research model."""
+"""Download and validate pinned multilingual embedding research models."""
 
 from __future__ import annotations
 
@@ -14,28 +14,23 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
+from src.model_specs import (
+    DEFAULT_MODEL_KEY,
+    MINILM_SPEC,
+    ModelSpec,
+    get_model_spec,
+    model_spec_for_directory,
+)
 
-MODEL_ID = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
-MODEL_REVISION = "e8f8c211226b894fcb81acc59f3b34ba3efd5f42"
-MODEL_DIRECTORY_NAME = "paraphrase-multilingual-MiniLM-L12-v2"
-EXPECTED_DIMENSION = 384
-EXPECTED_MAX_SEQUENCE_LENGTH = 128
+# Backward-compatible aliases for the original MiniLM experiment.
+MODEL_ID = MINILM_SPEC.model_id
+MODEL_REVISION = MINILM_SPEC.revision
+MODEL_DIRECTORY_NAME = MINILM_SPEC.directory_name
+EXPECTED_DIMENSION = MINILM_SPEC.embedding_dimension
+EXPECTED_MAX_SEQUENCE_LENGTH = MINILM_SPEC.max_sequence_length
 MODEL_MANIFEST_FILENAME = "model_manifest.json"
 REFERENCE_RUNTIME_MANIFEST_FILENAME = "reference_runtime_manifest.json"
-REQUIRED_MODEL_FILES = (
-    "1_Pooling/config.json",
-    "README.md",
-    "config.json",
-    "config_sentence_transformers.json",
-    "model.safetensors",
-    "modules.json",
-    "sentence_bert_config.json",
-    "sentencepiece.bpe.model",
-    "special_tokens_map.json",
-    "tokenizer.json",
-    "tokenizer_config.json",
-    "unigram.json",
-)
+REQUIRED_MODEL_FILES = MINILM_SPEC.required_files
 
 
 class ModelDownloadError(RuntimeError):
@@ -59,30 +54,38 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def manifest_path_for_model_dir(model_dir: Path) -> Path:
+def manifest_path_for_model_dir(
+    model_dir: Path, model_spec: ModelSpec | None = None
+) -> Path:
+    model_spec = model_spec or model_spec_for_directory(model_dir.name)
     if model_dir.parent.name == "sentence-transformers":
-        return model_dir.parent.parent / MODEL_MANIFEST_FILENAME
-    return model_dir.parent / MODEL_MANIFEST_FILENAME
+        return model_dir.parent.parent / model_spec.manifest_filename
+    return model_dir.parent / model_spec.manifest_filename
 
 
-def runtime_manifest_path_for_model_dir(model_dir: Path) -> Path:
-    return manifest_path_for_model_dir(model_dir).with_name(
-        REFERENCE_RUNTIME_MANIFEST_FILENAME
+def runtime_manifest_path_for_model_dir(
+    model_dir: Path, model_spec: ModelSpec | None = None
+) -> Path:
+    model_spec = model_spec or model_spec_for_directory(model_dir.name)
+    return manifest_path_for_model_dir(model_dir, model_spec).with_name(
+        model_spec.runtime_manifest_filename
     )
 
 
-def _stable_manifest(model_dir: Path) -> dict[str, Any]:
+def _stable_manifest(model_dir: Path, model_spec: ModelSpec) -> dict[str, Any]:
     return {
         "backend": "torch",
-        "embedding_dimension": EXPECTED_DIMENSION,
+        "document_prefix": model_spec.document_prefix,
+        "embedding_dimension": model_spec.embedding_dimension,
         "files": {
             relative: sha256_file(model_dir / relative)
-            for relative in REQUIRED_MODEL_FILES
+            for relative in model_spec.required_files
         },
-        "license": "Apache-2.0",
-        "max_seq_length": EXPECTED_MAX_SEQUENCE_LENGTH,
-        "model_id": MODEL_ID,
-        "revision": MODEL_REVISION,
+        "license": model_spec.license,
+        "max_seq_length": model_spec.max_sequence_length,
+        "model_id": model_spec.model_id,
+        "query_prefix": model_spec.query_prefix,
+        "revision": model_spec.revision,
     }
 
 
@@ -109,20 +112,21 @@ def _load_sentence_transformer(model_dir: Path) -> Any:
         ) from exc
 
 
-def _validate_model_runtime(model: Any) -> None:
+def _validate_model_runtime(model: Any, model_spec: ModelSpec) -> None:
     get_dimension = getattr(model, "get_embedding_dimension", None)
     if get_dimension is None:
         get_dimension = model.get_sentence_embedding_dimension
     dimension = get_dimension()
-    if dimension != EXPECTED_DIMENSION:
+    if dimension != model_spec.embedding_dimension:
         raise ModelDownloadError(
-            f"model embedding dimension is {dimension}, expected {EXPECTED_DIMENSION}"
+            "model embedding dimension is "
+            f"{dimension}, expected {model_spec.embedding_dimension}"
         )
     max_sequence_length = int(model.max_seq_length)
-    if max_sequence_length != EXPECTED_MAX_SEQUENCE_LENGTH:
+    if max_sequence_length != model_spec.max_sequence_length:
         raise ModelDownloadError(
             "model max sequence length is "
-            f"{max_sequence_length}, expected {EXPECTED_MAX_SEQUENCE_LENGTH}"
+            f"{max_sequence_length}, expected {model_spec.max_sequence_length}"
         )
 
 
@@ -131,17 +135,21 @@ def validate_model_installation(
     *,
     load_model: bool = True,
     model_loader: Callable[[Path], Any] | None = None,
+    model_spec: ModelSpec | None = None,
 ) -> tuple[dict[str, Any], Any | None]:
     """Validate required files, pinned metadata, hashes, and offline loading."""
 
     model_dir = Path(model_dir)
-    manifest_path = manifest_path_for_model_dir(model_dir)
+    model_spec = model_spec or model_spec_for_directory(model_dir.name)
+    manifest_path = manifest_path_for_model_dir(model_dir, model_spec)
     if not model_dir.is_dir():
         raise ModelDownloadError(f"model directory does not exist: {model_dir}")
     if not manifest_path.is_file():
         raise ModelDownloadError(f"model manifest does not exist: {manifest_path}")
 
-    missing = [name for name in REQUIRED_MODEL_FILES if not (model_dir / name).is_file()]
+    missing = [
+        name for name in model_spec.required_files if not (model_dir / name).is_file()
+    ]
     if missing:
         raise ModelDownloadError(
             "model installation is incomplete; missing: " + ", ".join(missing)
@@ -153,15 +161,19 @@ def validate_model_installation(
         raise ModelDownloadError(f"could not parse model manifest: {exc}") from exc
 
     expected_metadata = {
-        "model_id": MODEL_ID,
-        "revision": MODEL_REVISION,
+        "model_id": model_spec.model_id,
+        "revision": model_spec.revision,
         "backend": "torch",
-        "embedding_dimension": EXPECTED_DIMENSION,
-        "max_seq_length": EXPECTED_MAX_SEQUENCE_LENGTH,
+        "embedding_dimension": model_spec.embedding_dimension,
+        "max_seq_length": model_spec.max_sequence_length,
+        "query_prefix": model_spec.query_prefix,
+        "document_prefix": model_spec.document_prefix,
     }
-    mismatches = [
-        key for key, expected in expected_metadata.items() if manifest.get(key) != expected
-    ]
+    mismatches = []
+    for key, expected in expected_metadata.items():
+        actual = manifest.get(key, "" if key.endswith("_prefix") else None)
+        if actual != expected:
+            mismatches.append(key)
     if mismatches:
         raise ModelDownloadError(
             "model manifest metadata mismatch in: " + ", ".join(mismatches)
@@ -170,7 +182,7 @@ def validate_model_installation(
     manifest_files = manifest.get("files")
     if not isinstance(manifest_files, dict):
         raise ModelDownloadError("model manifest has no valid files mapping")
-    for relative in REQUIRED_MODEL_FILES:
+    for relative in model_spec.required_files:
         expected_hash = manifest_files.get(relative)
         if not isinstance(expected_hash, str) or len(expected_hash) != 64:
             raise ModelDownloadError(
@@ -183,11 +195,11 @@ def validate_model_installation(
     model = None
     if load_model:
         model = (model_loader or _load_sentence_transformer)(model_dir)
-        _validate_model_runtime(model)
+        _validate_model_runtime(model, model_spec)
     return manifest, model
 
 
-def _snapshot_download(model_dir: Path) -> None:
+def _snapshot_download(model_dir: Path, model_spec: ModelSpec) -> None:
     try:
         from huggingface_hub import snapshot_download
     except (ImportError, OSError) as exc:
@@ -197,14 +209,15 @@ def _snapshot_download(model_dir: Path) -> None:
         ) from exc
     try:
         snapshot_download(
-            repo_id=MODEL_ID,
-            revision=MODEL_REVISION,
+            repo_id=model_spec.model_id,
+            revision=model_spec.revision,
             local_dir=model_dir,
-            allow_patterns=list(REQUIRED_MODEL_FILES),
+            allow_patterns=list(model_spec.required_files),
         )
     except Exception as exc:
         raise ModelDownloadError(
-            f"could not download {MODEL_ID} at revision {MODEL_REVISION}: {exc}"
+            "could not download "
+            f"{model_spec.model_id} at revision {model_spec.revision}: {exc}"
         ) from exc
 
 
@@ -254,23 +267,30 @@ def _write_json_atomically(path: Path, payload: dict[str, Any]) -> None:
 def download_models(
     output_dir: str | Path,
     *,
+    model_name: str = DEFAULT_MODEL_KEY,
     snapshot_downloader: Callable[[Path], None] | None = None,
     model_loader: Callable[[Path], Any] | None = None,
 ) -> ModelDownloadSummary:
     """Download the pinned model to a temporary directory, then publish it."""
 
     model_dir = Path(output_dir)
-    manifest_path = manifest_path_for_model_dir(model_dir)
-    runtime_manifest_path = runtime_manifest_path_for_model_dir(model_dir)
+    try:
+        model_spec = get_model_spec(model_name)
+    except ValueError as exc:
+        raise ModelDownloadError(str(exc)) from exc
+    manifest_path = manifest_path_for_model_dir(model_dir, model_spec)
+    runtime_manifest_path = runtime_manifest_path_for_model_dir(model_dir, model_spec)
     if model_dir.exists() or manifest_path.exists():
-        validate_model_installation(model_dir, model_loader=model_loader)
+        validate_model_installation(
+            model_dir, model_loader=model_loader, model_spec=model_spec
+        )
         _write_json_atomically(runtime_manifest_path, _reference_runtime_manifest())
         return ModelDownloadSummary(
             model_dir=model_dir,
             manifest_path=manifest_path,
             runtime_manifest_path=runtime_manifest_path,
             downloaded=False,
-            file_count=len(REQUIRED_MODEL_FILES),
+            file_count=len(model_spec.required_files),
         )
 
     model_dir.parent.mkdir(parents=True, exist_ok=True)
@@ -280,17 +300,22 @@ def download_models(
     )
     temporary_model = temporary_root / model_dir.name
     temporary_model.mkdir()
-    temporary_manifest = temporary_root / MODEL_MANIFEST_FILENAME
-    temporary_runtime_manifest = temporary_root / REFERENCE_RUNTIME_MANIFEST_FILENAME
+    temporary_manifest = temporary_root / model_spec.manifest_filename
+    temporary_runtime_manifest = temporary_root / model_spec.runtime_manifest_filename
 
     try:
-        (snapshot_downloader or _snapshot_download)(temporary_model)
+        if snapshot_downloader is None:
+            _snapshot_download(temporary_model, model_spec)
+        else:
+            snapshot_downloader(temporary_model)
         cache_dir = temporary_model / ".cache"
         if cache_dir.exists():
             shutil.rmtree(cache_dir)
 
         missing = [
-            name for name in REQUIRED_MODEL_FILES if not (temporary_model / name).is_file()
+            name
+            for name in model_spec.required_files
+            if not (temporary_model / name).is_file()
         ]
         if missing:
             raise ModelDownloadError(
@@ -298,10 +323,10 @@ def download_models(
             )
 
         model = (model_loader or _load_sentence_transformer)(temporary_model)
-        _validate_model_runtime(model)
+        _validate_model_runtime(model, model_spec)
         del model
 
-        manifest = _stable_manifest(temporary_model)
+        manifest = _stable_manifest(temporary_model, model_spec)
         _write_json(temporary_manifest, manifest)
         _write_json(temporary_runtime_manifest, _reference_runtime_manifest())
 
@@ -315,11 +340,13 @@ def download_models(
     finally:
         shutil.rmtree(temporary_root, ignore_errors=True)
 
-    validate_model_installation(model_dir, model_loader=model_loader)
+    validate_model_installation(
+        model_dir, model_loader=model_loader, model_spec=model_spec
+    )
     return ModelDownloadSummary(
         model_dir=model_dir,
         manifest_path=manifest_path,
         runtime_manifest_path=runtime_manifest_path,
         downloaded=True,
-        file_count=len(REQUIRED_MODEL_FILES),
+        file_count=len(model_spec.required_files),
     )

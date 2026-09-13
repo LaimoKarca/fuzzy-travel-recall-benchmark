@@ -14,6 +14,7 @@ from src.model_download import (
     ModelDownloadError,
     download_models,
 )
+from src.model_specs import E5_SMALL_SPEC, MINILM_SPEC
 
 
 class _ValidModel:
@@ -21,6 +22,13 @@ class _ValidModel:
 
     def get_sentence_embedding_dimension(self) -> int:
         return EXPECTED_DIMENSION
+
+
+class _ValidE5Model:
+    max_seq_length = E5_SMALL_SPEC.max_sequence_length
+
+    def get_sentence_embedding_dimension(self) -> int:
+        return E5_SMALL_SPEC.embedding_dimension
 
 
 class ModelDownloadTests(unittest.TestCase):
@@ -43,6 +51,7 @@ class ModelDownloadTests(unittest.TestCase):
             )
             result = download_models(
                 model_dir,
+                model_name=MINILM_SPEC.key,
                 snapshot_downloader=self._downloader,
                 model_loader=lambda _: _ValidModel(),
             )
@@ -63,6 +72,7 @@ class ModelDownloadTests(unittest.TestCase):
 
             second = download_models(
                 model_dir,
+                model_name=MINILM_SPEC.key,
                 snapshot_downloader=lambda _: self.fail("unexpected download"),
                 model_loader=lambda _: _ValidModel(),
             )
@@ -72,6 +82,7 @@ class ModelDownloadTests(unittest.TestCase):
             with self.assertRaisesRegex(ModelDownloadError, "hash mismatch"):
                 download_models(
                     model_dir,
+                    model_name=MINILM_SPEC.key,
                     snapshot_downloader=lambda _: self.fail("unexpected overwrite"),
                     model_loader=lambda _: _ValidModel(),
                 )
@@ -91,6 +102,39 @@ class ModelDownloadTests(unittest.TestCase):
                 )
             self.assertFalse(model_dir.exists())
             self.assertFalse((Path(directory) / "model_manifest.json").exists())
+
+    def test_e5_uses_pinned_files_prefixes_and_separate_manifest(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            model_dir = (
+                root
+                / "models"
+                / "sentence-transformers"
+                / E5_SMALL_SPEC.directory_name
+            )
+
+            def downloader(destination: Path) -> None:
+                for relative in E5_SMALL_SPEC.required_files:
+                    path = destination / relative
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_text(f"e5:{relative}", encoding="utf-8")
+
+            result = download_models(
+                model_dir,
+                model_name=E5_SMALL_SPEC.key,
+                snapshot_downloader=downloader,
+                model_loader=lambda _: _ValidE5Model(),
+            )
+            manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
+            self.assertEqual(manifest["model_id"], E5_SMALL_SPEC.model_id)
+            self.assertEqual(manifest["revision"], E5_SMALL_SPEC.revision)
+            self.assertEqual(manifest["query_prefix"], "query: ")
+            self.assertEqual(manifest["document_prefix"], "passage: ")
+            self.assertEqual(manifest["max_seq_length"], 512)
+            self.assertEqual(
+                result.manifest_path.name, E5_SMALL_SPEC.manifest_filename
+            )
+            self.assertNotEqual(result.manifest_path.name, "model_manifest.json")
 
 
 if __name__ == "__main__":

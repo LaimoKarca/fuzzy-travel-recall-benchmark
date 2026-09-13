@@ -1,0 +1,3 @@
+method,benchmark_tier,cohort,query_type,query_count,ranked_candidate_count,graph_node_count,graph_edge_count,user_node_count,event_node_count,poi_node_count,category_node_count,trail_node_count,next_edge_count,dense_seed_count,expansion_hops,expansion_direction,rrf_k,expansion_traversal_count,unique_expanded_candidate_count,min_expanded_candidates_per_query,max_expanded_candidates_per_query,mean_expanded_candidates_per_query,queries_with_no_new_neighbor
+graph,core,main,relational_after,107,5086,9030,19942,108,5106,1553,228,2035,3071,5,1,next_only,60,884,722,5,10,6.747663551401869,23
+graph,core,high_memory_load,relational_after,35,2760,9030,19942,108,5106,1553,228,2035,3071,5,1,next_only,60,292,244,5,10,6.9714285714285715,5

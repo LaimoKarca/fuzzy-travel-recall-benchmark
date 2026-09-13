@@ -10,7 +10,7 @@
 - 固定研究門檻、抽樣規則與檢索參數，避免執行時任意改動。
 - 支援資料集原生的英文／日文混合文字。
 - Ground Truth 為唯一 `target_event_id`，重複造訪保留為 distractors。
-- MiniLM 固定 Hugging Face revision，下載後只從本機離線載入。
+- E5 固定 Hugging Face revision，下載後只從本機離線載入；MiniLM 保留為 encoder sensitivity 封存結果。
 - 從原始 check-ins、清洗、queries、完整 rankings 到正式 metrics 都可稽核。
 
 ## 快速開始
@@ -166,43 +166,47 @@ Flat 不需要模型。每個 canonical event 會先渲染成共用 `event_text`
 
 每題都保留該使用者所有事件的完整排名；Ground Truth 不會被寫入 ranking CSV。
 
-## Stage 4.2：Vector／Multilingual MiniLM
+## Stage 4.2：Vector／Multilingual E5
 
 先下載並驗證固定模型：
 
 ```bash
-python main.py download-models
+python main.py download-models --model multilingual-e5-small
 ```
 
 模型位置：
 
 ```text
-models/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2/
+models/sentence-transformers/multilingual-e5-small/
 ```
 
-固定 revision：`e8f8c211226b894fcb81acc59f3b34ba3efd5f42`。模型權重不提交 Git；其他研究者可用同一指令下載，並透過 `models/model_manifest.json` 的 SHA-256 驗證。
+固定 revision：`614241f622f53c4eeff9890bdc4f31cfecc418b3`。模型權重不提交 Git；其他研究者可用同一指令下載，並透過 E5 專屬 manifest 的 SHA-256 驗證。
 
 接著執行：
 
-```bash
-python main.py retrieve-vector
+```powershell
+python main.py retrieve-vector `
+  --model-dir models/sentence-transformers/multilingual-e5-small `
+  --output-dir data/prepared/stage_04_retrieval/e5/vector
 ```
 
-正式設定為 CPU、float32、batch size 32、384 維 L2-normalized embeddings、模型原生 128-token 上限。Query 與 document 原文直接交由模型 tokenizer，不使用 BM25 n-grams、prompt、fine-tuning、FAISS 或 reranker。
+正式設定為 CPU、float32、batch size 32、384 維 L2-normalized embeddings、512-token 上限。Event document 加上 `passage: `，query 加上 `query: `；原始 CSV 文字不改寫，也不使用 BM25 n-grams、fine-tuning、FAISS 或 reranker。
 
-主要輸出位於 `data/prepared/stage_04_retrieval/vector/`：三組 `.npy` embeddings、三份 row-index CSV、Core／Between 完整 rankings 與 summary。預期 shapes 為 events `(5106, 384)`、Core `(320, 384)`、Between `(98, 384)`。
+主要輸出位於 `data/prepared/stage_04_retrieval/e5/vector/`：三組 `.npy` embeddings、三份 row-index CSV、Core／Between 完整 rankings 與 summary。預期 shapes 為 events `(5106, 384)`、Core `(320, 384)`、Between `(98, 384)`。
 
 ## Stage 4.3：Graph／NetworkX
 
-```bash
-python main.py retrieve-graph
+```powershell
+python main.py retrieve-graph `
+  --vector-dir data/prepared/stage_04_retrieval/e5/vector `
+  --output-dir data/prepared/stage_04_retrieval/e5/graph
 ```
 
-Graph 不重新載入 MiniLM 或 encode 文字，而是驗證並重用 Stage 4.2 embeddings 與 dense rankings。異質有向圖包含 User、Event、POI、Category、Trail 節點，以及 HAS、AT、CATEGORY、IN_TRAIL、NEXT edges；PREVIOUS 由反向遍歷 NEXT 取得。
+Graph 不重新載入 E5 或 encode 文字，而是驗證並重用 Stage 4.2 embeddings 與 dense rankings。異質有向圖包含 User、Event、POI、Category、Trail 節點，以及 HAS、AT、CATEGORY、IN_TRAIL、NEXT edges；PREVIOUS 由反向遍歷 NEXT 取得。
 
 每題固定取 Vector Top-5 seeds，對稱擴展 SELF／PREVIOUS／NEXT 一跳，再以等權 RRF、`k=60` 合併 dense rank 與 expansion rank。所有 user events 仍保留於最終完整排名。
 
-圖規模：9,030 nodes、19,942 edges，其中 NEXT 3,071 條。主要輸出位於 `data/prepared/stage_04_retrieval/graph/`，包含 portable nodes／edges CSV、Core／Between expansion audit、完整 rankings 與 summary。
+圖規模：9,030 nodes、19,942 edges，其中 NEXT 3,071 條。主要輸出位於 `data/prepared/stage_04_retrieval/e5/graph/`，包含 portable nodes／edges CSV、Core／Between expansion audit、完整 rankings 與 summary。
 
 ## Stage 5：正式評估
 
@@ -217,10 +221,10 @@ Core Main 結果：
 | Method | MRR | Success@1 | Success@5 |
 |---|---:|---:|---:|
 | Flat／BM25 | 0.9338 | 0.8875 | 0.9938 |
-| Vector | 0.7908 | 0.6906 | 0.9344 |
-| Graph | 0.7883 | 0.6906 | 0.9281 |
+| E5 Dense | 0.7554 | 0.6188 | 0.9406 |
+| E5 Graph | 0.7539 | 0.6188 | 0.9344 |
 
-固定 Graph 配置在全部 418 題中，相對 Vector 有 7 題改善、378 題不變、33 題退步。396 個出現在 expansion list 的 targets 中，有 384 個本來就是 SELF dense seeds，只有 12 個首次透過 PREVIOUS 或 NEXT 找到。因此目前結果不支持「Graph 普遍能解決 repeated visits」的結論，也未進行事後 Graph 調參。
+在 320 題 Core 中，固定 E5-seeded Graph 相較 E5 Dense 有 12 題改善、280 題不變、28 題退步。由 `PREVIOUS` 或 `NEXT` 首次觸及的 target 為 59 題，較封存 MiniLM sensitivity run 的 7 題增加，但 E5 Dense 與 E5 Graph 的 320 個 Top-1 事件仍完全相同。這表示在固定一跳 RRF 配置下，結構可達性沒有轉換成 decision-level gain。
 
 主要輸出：
 
@@ -232,6 +236,32 @@ Core Main 結果：
 - `tokyo_pairwise_wilcoxon.csv`
 - `tokyo_graph_query_diagnostics.csv`
 - `tokyo_graph_diagnostic_summary.csv`
+
+## Encoder sensitivity 封存（MiniLM 與 E5）
+
+原 MiniLM 正式評估封存於 `data/outputs/stage_05_evaluation_minilm_frozen/`。正式主評估改用 retrieval-oriented
+`intfloat/multilingual-e5-small`，固定 revision
+`614241f622f53c4eeff9890bdc4f31cfecc418b3`。送入 E5 前，event document
+加上 `passage: `，query 加上 `query: `；原始 CSV 文字不會被改寫。
+
+```powershell
+python main.py download-models --model multilingual-e5-small
+python main.py retrieve-vector `
+  --model-dir models/sentence-transformers/multilingual-e5-small `
+  --output-dir data/prepared/stage_04_retrieval/e5/vector
+python main.py retrieve-graph `
+  --vector-dir data/prepared/stage_04_retrieval/e5/vector `
+  --output-dir data/prepared/stage_04_retrieval/e5/graph
+python main.py compare-encoder-runs
+```
+
+比較指令會驗證兩份 evaluation manifests、Ground Truth、encoder 身分、
+Graph／Vector 來源關係及來源 hashes，並產生四列 Core 指標表、Graph diagnosis delta 表與 Markdown 驗收報告。正式 sensitivity 產物位於 `data/outputs/stage_05_encoder_sensitivity/`，不取代三種主配置的正式比較。
+
+E5 執行產生 `(5106, 384)`、`(320, 384)`、`(98, 384)` 三組 arrays，
+且沒有截斷。E5 Dense Core MRR 為 0.7554，MiniLM 為 0.7908；E5 Graph
+為 0.7539，MiniLM Graph 為 0.7883。E5 使 Core target 首次經 NEXT 找到的
+數量由 6 增至 57，但 320 題的 Vector／Graph Top-1 仍完全相同。MiniLM 僅作為 encoder sensitivity 證據，不再列入主結果表。
 
 ## 測試
 
@@ -270,6 +300,21 @@ python -m unittest discover -v
 
 倉庫使用上游資料提供的匿名識別碼。請勿嘗試重新識別個人，或為此目的與外部資料進行串接。
 
+### E5 relational-after NEXT-only 消融（P0-4）
+
+此 exploratory 消融固定 E5、Dense Top-5 seeds、一跳、等權 RRF 與 `k=60`，唯一
+改動是把展開方向從 `SELF + PREVIOUS + NEXT` 改為 `SELF + NEXT`，並只評估
+107 題 `relational_after` Core queries。
+
+```powershell
+python main.py retrieve-graph-next-only
+python main.py evaluate-graph-direction
+```
+
+檢索產物寫入 `data/prepared/stage_04_retrieval/e5/graph_next_only/`；逐題比較、
+指標、診斷、manifest、驗收報告與 exploratory paired statistics 發布於
+`data/outputs/stage_05_graph_direction_ablation/`。Symmetric Graph MRR 為 0.6304，NEXT-only 為 0.6362；S@1 均為 0.4112，S@5 則由 0.9346 變為 0.9252。NEXT-only 相較 symmetric 為 6 題改善、100 題不變、1 題退步；兩者 structural first reach 都是 55 題，且沒有任何 Top-1 改變。此結果只作機制診斷，不構成第四種主方法。
+
 ## 資料與模型歸屬
 
 Tokyo check-ins 來自 Wilson Wongso、Hao Xue 與 Flora D. Salim 建立的 [Massive-STEPS](https://github.com/CRUISEResearchGroup/Massive-STEPS)。上游 repository 採 Apache-2.0，並以 Semantic Trails 及 POI metadata 為基礎。使用本資料時請引用：
@@ -286,11 +331,10 @@ Tokyo check-ins 來自 Wilson Wongso、Hao Xue 與 Flora D. Salim 建立的 [Mas
 }
 ```
 
-Vector 使用 Apache-2.0 的 [`sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`](https://huggingface.co/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2)。模型權重不存放於 Git。
+正式 Vector 使用 MIT 授權的 [`intfloat/multilingual-e5-small`](https://huggingface.co/intfloat/multilingual-e5-small)。封存的 sensitivity run 使用 Apache-2.0 授權的 [`sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`](https://huggingface.co/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2)。兩者模型權重都只下載至本機，不存放於 Git。
 
 詳細來源與授權界線請見 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 ## 授權
 
 本專案自行撰寫的程式碼與文件採 [MIT License](LICENSE)。第三方資料、模型與 dependencies 仍適用各自的授權與使用條款。
-

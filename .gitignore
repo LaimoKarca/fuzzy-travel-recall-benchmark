@@ -50,3 +50,10 @@ models/.download-*/
 /data/prepared/stage_04_retrieval/vector/tokyo_vector_run_manifest.json
 /data/prepared/stage_04_retrieval/graph/tokyo_graph_run_manifest.json
 /data/outputs/stage_05_evaluation/tokyo_evaluation_run_manifest.json
+/data/outputs/stage_05_evaluation_minilm_frozen/tokyo_evaluation_run_manifest.json
+/data/outputs/stage_05_graph_direction_ablation/tokyo_e5_graph_directional_run_manifest.json
+/data/prepared/stage_04_retrieval/e5/vector/tokyo_vector_run_manifest.json
+/data/prepared/stage_04_retrieval/e5/graph/tokyo_graph_run_manifest.json
+/data/prepared/stage_04_retrieval/e5/graph_next_only/tokyo_graph_next_only_relational_after_run_manifest.json
+/data/prepared/stage_05_evaluation_e5_candidate/tokyo_evaluation_run_manifest.json
+/data/prepared/stage_05_evaluation_e5_candidate/graph_direction_ablation/tokyo_e5_graph_directional_run_manifest.json
