@@ -1,0 +1,4 @@
+benchmark_tier,cohort,query_type,method,query_count,user_count,mrr,success_at_1,success_at_5
+core,main,overall,flat,320,108,0.9338020833,0.8875000000,0.9937500000
+core,main,overall,vector,320,108,0.7907554642,0.6906250000,0.9343750000
+core,main,overall,graph,320,108,0.7882505179,0.6906250000,0.9281250000

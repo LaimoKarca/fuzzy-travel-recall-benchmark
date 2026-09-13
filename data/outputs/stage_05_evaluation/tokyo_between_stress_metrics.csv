@@ -1,0 +1,7 @@
+benchmark_tier,cohort,query_type,method,query_count,user_count,mrr,success_at_1,success_at_5
+stress_test,main,overall,flat,98,98,0.9549319728,0.9183673469,1.0000000000
+stress_test,main,overall,vector,98,98,0.8375607386,0.7551020408,0.9489795918
+stress_test,main,overall,graph,98,98,0.8342878300,0.7551020408,0.9489795918
+stress_test,high_memory_load,overall,flat,33,33,0.8964646465,0.8181818182,1.0000000000
+stress_test,high_memory_load,overall,vector,33,33,0.7632756133,0.6666666667,0.9090909091
+stress_test,high_memory_load,overall,graph,33,33,0.7515948963,0.6666666667,0.8787878788

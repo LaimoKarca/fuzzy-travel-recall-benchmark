@@ -1,0 +1,10 @@
+benchmark_tier,cohort,query_type,method,query_count,user_count,mrr,success_at_1,success_at_5
+core,main,relational_after,flat,107,107,0.8444704050,0.7383177570,0.9906542056
+core,main,relational_after,vector,107,107,0.6143797661,0.4485981308,0.8504672897
+core,main,relational_after,graph,107,107,0.6083788008,0.4485981308,0.8504672897
+core,main,semantic,flat,105,105,0.9857142857,0.9714285714,1.0000000000
+core,main,semantic,vector,105,105,0.9309977324,0.8952380952,0.9904761905
+core,main,semantic,graph,105,105,0.9319207683,0.8952380952,0.9809523810
+core,main,temporal_spatial,flat,108,108,0.9718364198,0.9537037037,0.9907407407
+core,main,temporal_spatial,vector,108,108,0.8291514042,0.7314814815,0.9629629630
+core,main,temporal_spatial,graph,108,108,0.8267773460,0.7314814815,0.9537037037

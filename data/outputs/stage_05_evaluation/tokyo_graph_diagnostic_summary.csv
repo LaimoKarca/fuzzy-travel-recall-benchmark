@@ -1,0 +1,6 @@
+query_type,query_count,graph_improved_vs_vector_count,graph_unchanged_vs_vector_count,graph_worsened_vs_vector_count,graph_improved_vs_flat_count,graph_unchanged_vs_flat_count,graph_worsened_vs_flat_count,target_in_expansion_count,target_first_discovered_as_self_count,target_first_discovered_as_previous_count,target_first_discovered_as_next_count,repeated_target_venue_query_count,flat_wrong_same_venue_above_target_query_count,vector_wrong_same_venue_above_target_query_count,graph_wrong_same_venue_above_target_query_count,mean_graph_rank_gain_vs_vector,mean_graph_rank_gain_vs_flat
+overall,418,7,378,33,24,281,113,396,384,4,8,154,3,60,59,-0.2607655502,-1.1172248804
+relational_after,107,3,85,19,16,38,53,93,88,0,5,60,2,36,34,-0.6542056075,-2.4859813084
+relational_between,98,2,89,7,3,73,22,94,89,3,2,50,1,12,13,-0.2346938776,-0.8265306122
+semantic,105,1,102,2,2,93,10,104,103,1,0,0,0,0,0,-0.0380952381,-0.3428571429
+temporal_spatial,108,1,102,5,3,77,28,105,104,0,1,44,0,12,12,-0.1111111111,-0.7777777778

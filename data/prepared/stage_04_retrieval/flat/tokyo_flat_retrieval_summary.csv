@@ -1,0 +1,9 @@
+method,benchmark_tier,cohort,query_type,query_count,ranked_candidate_count,min_candidates_per_query,max_candidates_per_query,mean_candidates_per_query,all_zero_score_query_count
+flat,core,main,relational_after,107,5086,20,256,47.532710280373834,0
+flat,core,main,semantic,105,4996,20,256,47.58095238095238,0
+flat,core,main,temporal_spatial,108,5106,20,256,47.27777777777778,0
+flat,stress_test,main,relational_between,98,4816,21,256,49.142857142857146,0
+flat,core,high_memory_load,relational_after,35,2760,44,256,78.85714285714286,0
+flat,core,high_memory_load,semantic,34,2690,44,256,79.11764705882354,0
+flat,core,high_memory_load,temporal_spatial,35,2760,44,256,78.85714285714286,0
+flat,stress_test,high_memory_load,relational_between,33,2646,47,256,80.18181818181819,0

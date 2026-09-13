@@ -1,0 +1,52 @@
+# Python virtual environments
+.venv/
+venv/
+env/
+
+# Python caches and test/tool state
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+
+# Packaging artifacts
+build/
+dist/
+*.egg-info/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~
+
+# Temporary and partial writes
+*.tmp
+*.temp
+*.partial
+
+# Downloaded model weights (~500 MB). Recreate with `python main.py download-models`.
+models/sentence-transformers/
+models/.download-*/
+
+# Run manifests contain machine-specific absolute paths. The result CSVs,
+# portable model manifest, and reference runtime manifest remain tracked.
+/data/prepared/stage_04_retrieval/vector/tokyo_vector_run_manifest.json
+/data/prepared/stage_04_retrieval/graph/tokyo_graph_run_manifest.json
+/data/outputs/stage_05_evaluation/tokyo_evaluation_run_manifest.json

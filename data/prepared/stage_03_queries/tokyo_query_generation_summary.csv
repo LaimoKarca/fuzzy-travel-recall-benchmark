@@ -1,0 +1,9 @@
+benchmark_tier,cohort,query_type,user_count,generated_query_count,skipped_user_count
+core,main,semantic,108,105,3
+core,main,temporal_spatial,108,108,0
+core,main,relational_after,108,107,1
+core,high_memory_load,semantic,35,34,1
+core,high_memory_load,temporal_spatial,35,35,0
+core,high_memory_load,relational_after,35,35,0
+stress_test,main,relational_between,108,98,10
+stress_test,high_memory_load,relational_between,35,33,2

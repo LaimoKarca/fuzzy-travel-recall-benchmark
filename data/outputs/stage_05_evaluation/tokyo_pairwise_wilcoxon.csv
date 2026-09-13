@@ -1,0 +1,3 @@
+comparison,method_a,method_b,observation_unit,observation_count,nonzero_difference_count,mean_rr_method_a,mean_rr_method_b,mean_paired_difference_b_minus_a,wilcoxon_statistic,raw_p_value,holm_adjusted_p_value,alpha,reject_null_holm,alternative,zero_method,calculation_method,continuity_correction,status
+flat_vs_vector,flat,vector,per_user_mean_core_reciprocal_rank,108,81,0.9338477366,0.7881946971,-0.1456530395,277.5000000000,0.0000000001,0.0000000001,0.0500000000,True,two-sided,wilcox,approx,False,ok
+vector_vs_graph,vector,graph,per_user_mean_core_reciprocal_rank,108,29,0.7881946971,0.7857206761,-0.0024740210,85.0000000000,0.0041547999,0.0041547999,0.0500000000,True,two-sided,wilcox,approx,False,ok
