@@ -2,7 +2,7 @@
 
 [English](README.md) | 繁體中文
 
-本專案建立一套可重現的個人移動記憶檢索基準，目標是在使用者只記得不完整的語意、時間空間或前後地點線索時，找回唯一的造訪事件。倉庫包含完整 CLI 管線、Massive-STEPS Tokyo 研究資料，以及 Flat／BM25、多語 Vector 與 Graph 三種方法的正式評估結果。
+本專案建立一套可重現的個人移動記憶檢索基準，目標是在使用者只記得不完整的語意、時間空間或前後地點線索時，找回唯一的造訪事件。倉庫包含完整 CLI 管線、Massive-STEPS Tokyo 研究資料，以及 BM25、E5 Dense、Graph-1Hop-RRF 與 Graph-PPR-RRF 的評估結果。為維持可重現性，既有 CLI 與產物路徑仍保留 flat／vector 命名。
 
 ## 專案特色
 
@@ -149,13 +149,13 @@ python main.py generate-queries
 - `tokyo_query_generation_audit.csv`
 - `tokyo_query_generation_summary.csv`
 
-## Stage 4.1：Flat／BM25
+## Stage 4.1：BM25
 
 ```bash
 python main.py retrieve-flat
 ```
 
-Flat 不需要模型。每個 canonical event 會先渲染成共用 `event_text`；Flat、Vector 與 Graph dense seed 都使用相同文字。BM25 以每位使用者建立獨立 index，固定 `k1=1.5`、`b=0.75`、`epsilon=0.25`。Tokenizer 使用 NFKC、case folding、拉丁文字／數字 word tokens，以及日文完整片段與 character bigrams／trigrams。
+BM25 不需要模型。每個 canonical event 會先渲染成共用 `event_text`；BM25、E5 Dense 與 Graph-1Hop-RRF dense seed 都使用相同文字。BM25 以每位使用者建立獨立 index，固定 `k1=1.5`、`b=0.75`、`epsilon=0.25`。Tokenizer 使用 NFKC、case folding、拉丁文字／數字 word tokens，以及日文完整片段與 character bigrams／trigrams。
 
 主要輸出：
 
@@ -166,7 +166,7 @@ Flat 不需要模型。每個 canonical event 會先渲染成共用 `event_text`
 
 每題都保留該使用者所有事件的完整排名；Ground Truth 不會被寫入 ranking CSV。
 
-## Stage 4.2：Vector／Multilingual E5
+## Stage 4.2：E5 Dense
 
 先下載並驗證固定模型：
 
@@ -194,7 +194,7 @@ python main.py retrieve-vector `
 
 主要輸出位於 `data/prepared/stage_04_retrieval/e5/vector/`：三組 `.npy` embeddings、三份 row-index CSV、Core／Between 完整 rankings 與 summary。預期 shapes 為 events `(5106, 384)`、Core `(320, 384)`、Between `(98, 384)`。
 
-## Stage 4.3：Graph／NetworkX
+## Stage 4.3：Graph-1Hop-RRF／NetworkX
 
 ```powershell
 python main.py retrieve-graph `
@@ -204,7 +204,7 @@ python main.py retrieve-graph `
 
 Graph 不重新載入 E5 或 encode 文字，而是驗證並重用 Stage 4.2 embeddings 與 dense rankings。異質有向圖包含 User、Event、POI、Category、Trail 節點，以及 HAS、AT、CATEGORY、IN_TRAIL、NEXT edges；PREVIOUS 由反向遍歷 NEXT 取得。
 
-每題固定取 Vector Top-5 seeds，對稱擴展 SELF／PREVIOUS／NEXT 一跳，再以等權 RRF、`k=60` 合併 dense rank 與 expansion rank。所有 user events 仍保留於最終完整排名。
+每題固定取 E5 Dense Top-5 seeds，對稱擴展 SELF／PREVIOUS／NEXT 一跳，再以等權 RRF、`k=60` 合併 dense rank 與 expansion rank。所有 user events 仍保留於最終完整排名。
 
 圖規模：9,030 nodes、19,942 edges，其中 NEXT 3,071 條。主要輸出位於 `data/prepared/stage_04_retrieval/e5/graph/`，包含 portable nodes／edges CSV、Core／Between expansion audit、完整 rankings 與 summary。
 
@@ -214,17 +214,17 @@ Graph 不重新載入 E5 或 encode 文字，而是驗證並重用 Stage 4.2 emb
 python main.py evaluate
 ```
 
-正式結果寫入 `data/outputs/stage_05_evaluation/`。Evaluator 在 join Ground Truth 前會驗證 query、target、user boundary、rank continuity、三方法 candidate set，以及 Vector／Graph artifact hashes。
+正式結果寫入 `data/outputs/stage_05_evaluation/`。Evaluator 在 join Ground Truth 前會驗證 query、target、user boundary、rank continuity、三方法 candidate set，以及 E5 Dense／Graph-1Hop-RRF artifact hashes。
 
 Core Main 結果：
 
 | Method | MRR | Success@1 | Success@5 |
 |---|---:|---:|---:|
-| Flat／BM25 | 0.9338 | 0.8875 | 0.9938 |
+| BM25 | 0.9338 | 0.8875 | 0.9938 |
 | E5 Dense | 0.7554 | 0.6188 | 0.9406 |
-| E5 Graph | 0.7539 | 0.6188 | 0.9344 |
+| Graph-1Hop-RRF | 0.7539 | 0.6188 | 0.9344 |
 
-在 320 題 Core 中，固定 E5-seeded Graph 相較 E5 Dense 有 12 題改善、280 題不變、28 題退步。由 `PREVIOUS` 或 `NEXT` 首次觸及的 target 為 59 題，較封存 MiniLM sensitivity run 的 7 題增加，但 E5 Dense 與 E5 Graph 的 320 個 Top-1 事件仍完全相同。這表示在固定一跳 RRF 配置下，結構可達性沒有轉換成 decision-level gain。
+在 320 題 Core 中，Graph-1Hop-RRF 相較 E5 Dense 有 12 題改善、280 題不變、28 題退步。由 `PREVIOUS` 或 `NEXT` 首次觸及的 target 為 59 題，較封存 MiniLM sensitivity run 的 7 題增加，但 E5 Dense 與 Graph-1Hop-RRF 的 320 個 Top-1 事件仍完全相同。這表示在固定一跳 RRF 配置下，結構可達性沒有轉換成 decision-level gain。
 
 主要輸出：
 
@@ -256,12 +256,13 @@ python main.py compare-encoder-runs
 ```
 
 比較指令會驗證兩份 evaluation manifests、Ground Truth、encoder 身分、
-Graph／Vector 來源關係及來源 hashes，並產生四列 Core 指標表、Graph diagnosis delta 表與 Markdown 驗收報告。正式 sensitivity 產物位於 `data/outputs/stage_05_encoder_sensitivity/`，不取代三種主配置的正式比較。
+Graph-1Hop-RRF／E5 Dense 來源關係及來源 hashes，並產生四列 Core 指標表、Graph diagnosis delta 表與 Markdown 驗收報告。正式 sensitivity 產物位於 `data/outputs/stage_05_encoder_sensitivity/`，不取代三種主配置的正式比較。
 
 E5 執行產生 `(5106, 384)`、`(320, 384)`、`(98, 384)` 三組 arrays，
-且沒有截斷。E5 Dense Core MRR 為 0.7554，MiniLM 為 0.7908；E5 Graph
-為 0.7539，MiniLM Graph 為 0.7883。E5 使 Core target 首次經 NEXT 找到的
-數量由 6 增至 57，但 320 題的 Vector／Graph Top-1 仍完全相同。MiniLM 僅作為 encoder sensitivity 證據，不再列入主結果表。
+且沒有截斷。E5 Dense Core MRR 為 0.7554，MiniLM 為 0.7908；E5
+Graph-1Hop-RRF 為 0.7539，MiniLM Graph-1Hop-RRF 為 0.7883。E5 使 Core
+target 首次經 NEXT 找到的數量由 6 增至 57，但 320 題的 Dense／
+Graph-1Hop-RRF Top-1 仍完全相同。MiniLM 僅作為 encoder sensitivity 證據，不再列入主結果表。
 
 ## 測試
 
@@ -318,7 +319,7 @@ python main.py evaluate-graph-direction
 ## 第二階段：Graph-PPR-RRF 與 Structured NEXT oracle
 
 第二階段與已凍結的 Stage 1--5 正式結果隔離，只新增一個正式延伸配置與一個
-structured-cue 診斷，不修改論文或任何既有排名：
+structured-cue 診斷，不修改凍結的 Stage 1--5 rankings 或 artifacts：
 
 ```powershell
 python main.py retrieve-graph-ppr
@@ -344,7 +345,7 @@ Truth。此結果只診斷 graph 是否保留完成 AFTER 任務所需的關係�
 Graph retriever 的表現。
 
 所有產物位於 `data/prepared/phase_02_graph_extensions/`。延伸 evaluator
-比較 Flat、E5 Dense、E5 Graph-1Hop-RRF、E5 Graph-PPR-RRF，並輸出逐題名次
+比較 BM25、E5 Dense、Graph-1Hop-RRF、Graph-PPR-RRF，並輸出逐題名次
 變化、any-relation 與 NEXT-only seed-to-target 距離、四組以 user 為單位且經
 Holm 校正的 Wilcoxon 比較，以及 Structured NEXT oracle 結果。第二階段參數
 固定，沒有最低成績門檻；負結果同樣屬於有效驗收結果。
@@ -381,7 +382,7 @@ Tokyo check-ins 來自 Wilson Wongso、Hao Xue 與 Flora D. Salim 建立的 [Mas
 }
 ```
 
-正式 Vector 使用 MIT 授權的 [`intfloat/multilingual-e5-small`](https://huggingface.co/intfloat/multilingual-e5-small)。封存的 sensitivity run 使用 Apache-2.0 授權的 [`sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`](https://huggingface.co/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2)。兩者模型權重都只下載至本機，不存放於 Git。
+正式 E5 Dense 使用 MIT 授權的 [`intfloat/multilingual-e5-small`](https://huggingface.co/intfloat/multilingual-e5-small)。封存的 sensitivity run 使用 Apache-2.0 授權的 [`sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`](https://huggingface.co/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2)。兩者模型權重都只下載至本機，不存放於 Git。
 
 詳細來源與授權界線請見 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 

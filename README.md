@@ -5,7 +5,9 @@
 A reproducible benchmark for retrieving a person's mobility event from
 incomplete semantic, temporal-spatial, or relational cues. The repository
 contains the complete command-line pipeline, the Tokyo research artifacts,
-and the formal Flat/BM25, multilingual Vector, and Graph evaluation results.
+and the formal BM25, E5 Dense, Graph-1Hop-RRF, and Graph-PPR-RRF evaluation
+results. Legacy CLI and artifact paths retain the flat/vector naming for
+reproducibility.
 
 ## Highlights
 
@@ -197,7 +199,7 @@ Expected results:
 The between set is generated for reproducibility but remains optional for the
 deadline. It must not be merged into the core overall score.
 
-## Step 4.1: run Flat/BM25 retrieval
+## Step 4.1: run BM25 retrieval
 
 Install the updated dependencies, then run:
 
@@ -212,8 +214,8 @@ and Between query files. Custom paths can be supplied with `--events`,
 
 Every canonical event is rendered as one shared English-framed event document.
 Original Japanese names and addresses, English categories, Romanized cities,
-timestamps, and previous/next places are preserved. Flat, Vector, and Graph
-dense seeding must reuse this exact `event_text`.
+timestamps, and previous/next places are preserved. BM25, E5 Dense, and
+Graph-1Hop-RRF dense seeding must reuse this exact `event_text`.
 
 BM25 is built separately for each user with fixed parameters `k1=1.5`,
 `b=0.75`, and `epsilon=0.25`. Text is normalized with Unicode NFKC and case
@@ -249,7 +251,7 @@ They deliberately exclude Ground Truth; Stage 5 will join targets by
 by ascending `event_id`, so the output is reproducible even if input rows are
 reordered.
 
-## Step 4.2: run E5 Vector retrieval
+## Step 4.2: run E5 Dense retrieval
 
 Download and validate the pinned model once:
 
@@ -274,7 +276,7 @@ models/sentence-transformers/multilingual-e5-small/
 Model weights are ignored by Git and must not be placed in `src`. The small
 model manifest remains project metadata.
 
-Run Vector retrieval after Stage 4.1 has created the shared documents:
+Run E5 Dense retrieval after Stage 4.1 has created the shared documents:
 
 ```powershell
 python main.py retrieve-vector `
@@ -300,8 +302,8 @@ Generated files in `data/prepared/stage_04_retrieval/e5/vector`:
 | `tokyo_vector_core_query_embedding_index.csv` | Core query mapping for each embedding row |
 | `tokyo_vector_between_query_embeddings.npy` | 98 Between query embeddings, shape `(98, 384)` |
 | `tokyo_vector_between_query_embedding_index.csv` | Between query mapping for each embedding row |
-| `tokyo_vector_core_rankings.csv` | 15,188 complete per-user Vector ranking rows |
-| `tokyo_vector_between_rankings.csv` | 4,816 complete per-user Vector ranking rows |
+| `tokyo_vector_core_rankings.csv` | 15,188 complete per-user E5 Dense ranking rows |
+| `tokyo_vector_between_rankings.csv` | 4,816 complete per-user E5 Dense ranking rows |
 | `tokyo_vector_retrieval_summary.csv` | Counts, model settings, truncations, and equal-score diagnostics |
 | `tokyo_vector_run_manifest.json` | Input, model, output, parameter, and runtime hashes/versions |
 
@@ -311,7 +313,7 @@ scores for all candidates. Repeating the run in the same CPU environment
 produced identical hashes for all ten outputs. The rankings themselves exclude
 Ground Truth; the formal evaluator in Step 5 performs the controlled join.
 
-## Step 4.3: run Graph retrieval
+## Step 4.3: run Graph-1Hop-RRF retrieval
 
 Run after Stage 4.2:
 
@@ -347,8 +349,8 @@ Generated files in `data/prepared/stage_04_retrieval/e5/graph`:
 | `tokyo_graph_edges.csv` | Typed directed-edge table |
 | `tokyo_graph_core_expansion_audit.csv` | 3,629 Core seed/self/neighbor traversals |
 | `tokyo_graph_between_expansion_audit.csv` | 1,183 Between traversals |
-| `tokyo_graph_core_rankings.csv` | 15,188 complete Core Graph ranking rows |
-| `tokyo_graph_between_rankings.csv` | 4,816 complete Between Graph ranking rows |
+| `tokyo_graph_core_rankings.csv` | 15,188 complete Core Graph-1Hop-RRF ranking rows |
+| `tokyo_graph_between_rankings.csv` | 4,816 complete Between Graph-1Hop-RRF ranking rows |
 | `tokyo_graph_retrieval_summary.csv` | Graph, expansion, query, and cohort counts |
 | `tokyo_graph_run_manifest.json` | Input/output hashes, parameters, and runtime versions |
 
@@ -365,7 +367,7 @@ python main.py evaluate
 ```
 
 The evaluator validates the Stage 3 query targets, complete per-user candidate
-rankings, Vector and Graph manifests, artifact hashes, cohort flags, and user
+rankings, E5 Dense and Graph-1Hop-RRF manifests, artifact hashes, cohort flags, and user
 boundaries before joining Ground Truth. Custom inputs can be supplied with
 `--events`, `--core-queries`, `--between-queries`, `--flat-dir`,
 `--vector-dir`, `--graph-dir`, and `--output-dir`.
@@ -388,15 +390,15 @@ Core Main results:
 
 | Method | MRR | Success@1 | Success@5 |
 |---|---:|---:|---:|
-| Flat / BM25 | 0.9338 | 0.8875 | 0.9938 |
+| BM25 | 0.9338 | 0.8875 | 0.9938 |
 | E5 Dense | 0.7554 | 0.6188 | 0.9406 |
-| E5 Graph | 0.7539 | 0.6188 | 0.9344 |
+| Graph-1Hop-RRF | 0.7539 | 0.6188 | 0.9344 |
 
-For the 320 Core queries, the fixed E5-seeded Graph configuration improves 12
+For the 320 Core queries, Graph-1Hop-RRF improves 12
 target ranks relative to E5 Dense, leaves 280 unchanged, and worsens 28.
 Fifty-nine targets are first reached through `PREVIOUS` or `NEXT`, compared
-with seven in the archived MiniLM sensitivity run, yet E5 Dense and E5 Graph
-still return the same Top-1 event for all 320 queries. Structural reachability
+with seven in the archived MiniLM sensitivity run, yet E5 Dense and
+Graph-1Hop-RRF still return the same Top-1 event for all 320 queries. Structural reachability
 therefore did not translate into decision-level gains under this fixed
 one-hop RRF configuration.
 
@@ -421,7 +423,7 @@ python main.py compare-encoder-runs
 ```
 
 The comparison command validates both evaluation manifests, Ground Truth,
-encoder identity, Graph-to-Vector provenance, and source hashes. It writes a
+encoder identity, Graph-1Hop-RRF-to-E5-Dense provenance, and source hashes. It writes a
 four-row Core metrics table, a Graph-diagnostic delta table, and a Markdown
 validation report. The published sensitivity artifacts are under
 `data/outputs/stage_05_encoder_sensitivity/`; they do not replace the formal
@@ -429,9 +431,10 @@ three-configuration comparison.
 
 E5 produced `(5106, 384)`, `(320, 384)`, and
 `(98, 384)` event/Core/Between arrays with no truncations. Its Core Dense MRR
-was 0.7554 versus MiniLM's 0.7908. E5 Graph MRR was 0.7539 versus MiniLM
-Graph's 0.7883. E5 increased Core targets first reached through `NEXT` from 6
-to 57, but Vector and Graph retained identical Top-1 events for all 320 Core
+was 0.7554 versus MiniLM's 0.7908. E5 Graph-1Hop-RRF MRR was 0.7539 versus
+MiniLM Graph-1Hop-RRF's 0.7883. E5 increased Core targets first reached
+through `NEXT` from 6 to 57, but the Dense and Graph-1Hop-RRF runs retained
+identical Top-1 events for all 320 Core
 queries. MiniLM remains sensitivity evidence rather than a main-table method.
 
 ## Tests
@@ -494,7 +497,7 @@ fourth main method.
 
 Phase 2 is isolated from the frozen Stage 1--5 results. It adds one formal
 extension configuration and one structured-cue diagnostic without modifying
-the paper or any earlier ranking:
+the frozen Stage 1--5 rankings or artifacts:
 
 ```powershell
 python main.py retrieve-graph-ppr
@@ -523,8 +526,8 @@ it is not a general retrieval method.
 
 All outputs are written beneath
 `data/prepared/phase_02_graph_extensions/`. The extended evaluator reports
-four configurations (Flat, E5 Dense, E5 Graph-1Hop-RRF, and E5
-Graph-PPR-RRF), per-query rank changes, any-relation and NEXT-only seed-to-
+four configurations (BM25, E5 Dense, Graph-1Hop-RRF, and Graph-PPR-RRF),
+per-query rank changes, any-relation and NEXT-only seed-to-
 target distances, four user-level Wilcoxon comparisons with Holm correction,
 and the Structured NEXT oracle result. Phase 2 parameters are fixed and no
 minimum score is required for acceptance; negative results remain valid.
@@ -568,7 +571,7 @@ Please cite the dataset paper when using these files:
 }
 ```
 
-Formal Vector retrieval uses the MIT-licensed
+Formal E5 Dense retrieval uses the MIT-licensed
 [`intfloat/multilingual-e5-small`](https://huggingface.co/intfloat/multilingual-e5-small).
 The archived sensitivity run used the Apache-2.0-licensed
 [`sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`](https://huggingface.co/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2).
