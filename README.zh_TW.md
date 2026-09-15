@@ -315,6 +315,56 @@ python main.py evaluate-graph-direction
 指標、診斷、manifest、驗收報告與 exploratory paired statistics 發布於
 `data/outputs/stage_05_graph_direction_ablation/`。Symmetric Graph MRR 為 0.6304，NEXT-only 為 0.6362；S@1 均為 0.4112，S@5 則由 0.9346 變為 0.9252。NEXT-only 相較 symmetric 為 6 題改善、100 題不變、1 題退步；兩者 structural first reach 都是 55 題，且沒有任何 Top-1 改變。此結果只作機制診斷，不構成第四種主方法。
 
+## 第二階段：Graph-PPR-RRF 與 Structured NEXT oracle
+
+第二階段與已凍結的 Stage 1--5 正式結果隔離，只新增一個正式延伸配置與一個
+structured-cue 診斷，不修改論文或任何既有排名：
+
+```powershell
+python main.py retrieve-graph-ppr
+python main.py diagnose-structured-next
+python main.py evaluate-graph-extensions
+```
+
+`retrieve-graph-ppr` 直接重用凍結的 E5 embeddings 與完整 Dense rankings。
+Graph-1Hop 所用的同一組 E5 Dense Top-5 events 會形成 cosine 加權的
+personalization distribution，PPR 則在每位使用者各自的無向、無權重
+Event--POI--Category--Trail--NEXT graph 上計算。固定參數為 `alpha=0.5`、
+`tol=1e-12`、`max_iter=1000`、`weight=None`，最後只保留 Event nodes 的分數。
+完整 PPR ranking 與完整 Dense ranking使用 1-based、等權 RRF 融合：
+
+```text
+1 / (60 + dense_rank) + 1 / (60 + ppr_rank)
+```
+
+`diagnose-structured-next` 只處理 107 題 `relational_after`。它正規化
+`cue_previous_place`、比對 event name anchors、沿 outgoing `NEXT` traversal，
+再以 `cue_category` 篩選。候選生成不讀取 `cue_previous_event_id` 或 Ground
+Truth。此結果只診斷 graph 是否保留完成 AFTER 任務所需的關係資訊，不代表一般
+Graph retriever 的表現。
+
+所有產物位於 `data/prepared/phase_02_graph_extensions/`。延伸 evaluator
+比較 Flat、E5 Dense、E5 Graph-1Hop-RRF、E5 Graph-PPR-RRF，並輸出逐題名次
+變化、any-relation 與 NEXT-only seed-to-target 距離、四組以 user 為單位且經
+Holm 校正的 Wilcoxon 比較，以及 Structured NEXT oracle 結果。第二階段參數
+固定，沒有最低成績門檻；負結果同樣屬於有效驗收結果。
+
+### Phase 2.1：All-event personalization事後敏感度分析
+
+Phase 2.1只補一個在觀察Top-5 PPR結果後固定的敏感度分析：將Top-5 Event
+personalization改為該使用者全部Events的正cosine權重，同時維持E5 embeddings、
+graph、relations、PageRank參數、候選集合與RRF公式不變：
+
+```powershell
+python main.py retrieve-graph-ppr-all-event
+python main.py evaluate-ppr-personalization-sensitivity
+```
+
+產物分別隔離於`phase_02_graph_extensions/ppr_all_event/`與
+`phase_02_graph_extensions/personalization_sensitivity/`。報告分開呈現Raw PPR
+與PPR-RRF，並依target是否原已位於Frozen Dense Top-5分層。此項分析明確屬於
+post-hoc sensitivity，不是第五種主要方法，也不新增推論統計或參數調整。
+
 ## 資料與模型歸屬
 
 Tokyo check-ins 來自 Wilson Wongso、Hao Xue 與 Flora D. Salim 建立的 [Massive-STEPS](https://github.com/CRUISEResearchGroup/Massive-STEPS)。上游 repository 採 Apache-2.0，並以 Semantic Trails 及 POI metadata 為基礎。使用本資料時請引用：

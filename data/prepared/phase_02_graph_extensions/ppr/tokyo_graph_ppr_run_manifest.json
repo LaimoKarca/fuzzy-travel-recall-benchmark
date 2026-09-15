@@ -1,0 +1,81 @@
+{
+  "dense_seed_model": {
+    "id": "intfloat/multilingual-e5-small",
+    "manifest_sha256": "ee09428910f84718949e2a780fcae3d4caef833860953b0822a900d87e16dc6e",
+    "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3"
+  },
+  "inputs": {
+    "canonical_events": {
+      "path": "data/prepared/stage_02_canonical_events/tokyo_canonical_events_users_with_at_least_10_clean_trails.csv",
+      "sha256": "bbf2f367d4459b0ea97a4b76db1cefd45251b786d14ed8278e6d97f64e8eaa3d"
+    },
+    "core_query_embeddings": {
+      "path": "data/prepared/stage_04_retrieval/e5/vector/tokyo_vector_core_query_embeddings.npy",
+      "sha256": "f2fd6f6f9196a7cb5f8be7441fc956f4f161eec95b04a791e86014c551cd01f8"
+    },
+    "core_query_index": {
+      "path": "data/prepared/stage_04_retrieval/e5/vector/tokyo_vector_core_query_embedding_index.csv",
+      "sha256": "070a8ea68d8b2ab5c23515c9b69809fc90ca0982206a5085715bb810d082d59b"
+    },
+    "core_vector_rankings": {
+      "path": "data/prepared/stage_04_retrieval/e5/vector/tokyo_vector_core_rankings.csv",
+      "sha256": "346ed2b1c9c059f7b5170bea98dc904cae86519d12fc5d5c0ba732cbc4c76ccc"
+    },
+    "event_embeddings": {
+      "path": "data/prepared/stage_04_retrieval/e5/vector/tokyo_vector_event_embeddings.npy",
+      "sha256": "12571e57493f1bc3db6cde40014c77834aa24d0d6bfc747d78c4640de0fada64"
+    },
+    "event_index": {
+      "path": "data/prepared/stage_04_retrieval/e5/vector/tokyo_vector_event_embedding_index.csv",
+      "sha256": "783a50c1b2c29967197c39fa82fdeb829da9a38f34c9effd6137b302f299a457"
+    },
+    "vector_run_manifest": {
+      "path": "data/prepared/stage_04_retrieval/e5/vector/tokyo_vector_run_manifest.json",
+      "sha256": "055aed1fc06bbf6d069661e39ac87f785cfe80cf6495cff423a0796afceb2c05"
+    }
+  },
+  "method": "graph_ppr_rrf",
+  "outputs": {
+    "tokyo_graph_ppr_event_scores.csv": "4f6166632985943719b0999f4dda14505bd0c234faf740cab8add815d42abe16",
+    "tokyo_graph_ppr_projection_summary.csv": "8d36eabadd1abf9e8802d65047d6c39a002b878e413087d7a0f238570bb4db68",
+    "tokyo_graph_ppr_query_audit.csv": "e1f90fceda5bedcbad14d188d7020605ebcf3e6af54f349d7553b86e8c661135",
+    "tokyo_graph_ppr_retrieval_summary.csv": "422b7c8d0ef1a56511faee58bc6ba3a3926966ba2333160e391d738950adb625",
+    "tokyo_graph_ppr_rrf_core_rankings.csv": "631f81f491458d17e354a6473f6a137395b7d6f32f2137cbd0e8150722676c5d"
+  },
+  "parameters": {
+    "candidate_truncation": "none",
+    "dense_seed_count": 5,
+    "excluded_nodes": [
+      "User"
+    ],
+    "excluded_relations": [
+      "HAS"
+    ],
+    "graph_projection": "per_user_undirected_unweighted",
+    "included_relations": [
+      "AT",
+      "CATEGORY",
+      "IN_TRAIL",
+      "NEXT"
+    ],
+    "personalization": "positive cosine normalized over frozen E5 Top-5 seeds",
+    "ppr_alpha": 0.5,
+    "ppr_max_iter": 1000,
+    "ppr_output_nodes": "Event only",
+    "ppr_tol": 1e-12,
+    "ppr_weight": null,
+    "ranking_depth": "all events belonging to the query user",
+    "rrf_formula": "1/(60+dense_rank)+1/(60+ppr_rank)",
+    "rrf_k": 60,
+    "rrf_ranks_are_one_based": true,
+    "score_comparison_atol": 1e-12,
+    "score_comparison_rtol": 1e-10,
+    "tie_break": "event_id ascending"
+  },
+  "runtime_versions": {
+    "networkx": "3.6.1",
+    "numpy": "2.5.3",
+    "pandas": "2.3.3",
+    "python": "3.12.3"
+  }
+}

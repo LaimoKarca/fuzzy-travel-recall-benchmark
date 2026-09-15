@@ -24,6 +24,11 @@ from main import (
     DEFAULT_E5_GRAPH_OUTPUT_DIR,
     DEFAULT_E5_NEXT_ONLY_GRAPH_OUTPUT_DIR,
     DEFAULT_GRAPH_DIRECTION_EVALUATION_DIR,
+    DEFAULT_PPR_OUTPUT_DIR,
+    DEFAULT_STRUCTURED_NEXT_OUTPUT_DIR,
+    DEFAULT_PHASE2_EVALUATION_DIR,
+    DEFAULT_PPR_ALL_EVENT_OUTPUT_DIR,
+    DEFAULT_PPR_SENSITIVITY_OUTPUT_DIR,
     build_parser,
 )
 
@@ -123,6 +128,35 @@ class MainCliDefaultsTests(unittest.TestCase):
             args.next_only_graph_dir, DEFAULT_E5_NEXT_ONLY_GRAPH_OUTPUT_DIR
         )
         self.assertEqual(args.output_dir, DEFAULT_GRAPH_DIRECTION_EVALUATION_DIR)
+
+    def test_phase_two_graph_extension_defaults_are_isolated(self) -> None:
+        ppr = build_parser().parse_args(["retrieve-graph-ppr"])
+        self.assertEqual(ppr.events, DEFAULT_QUERY_INPUT)
+        self.assertEqual(ppr.vector_dir, DEFAULT_E5_VECTOR_OUTPUT_DIR)
+        self.assertEqual(ppr.output_dir, DEFAULT_PPR_OUTPUT_DIR)
+
+        oracle = build_parser().parse_args(["diagnose-structured-next"])
+        self.assertEqual(oracle.queries, DEFAULT_CORE_QUERIES_INPUT)
+        self.assertEqual(oracle.output_dir, DEFAULT_STRUCTURED_NEXT_OUTPUT_DIR)
+
+        evaluation = build_parser().parse_args(["evaluate-graph-extensions"])
+        self.assertEqual(evaluation.ppr_dir, DEFAULT_PPR_OUTPUT_DIR)
+        self.assertEqual(evaluation.output_dir, DEFAULT_PHASE2_EVALUATION_DIR)
+
+        all_event = build_parser().parse_args(["retrieve-graph-ppr-all-event"])
+        self.assertEqual(all_event.vector_dir, DEFAULT_E5_VECTOR_OUTPUT_DIR)
+        self.assertEqual(all_event.output_dir, DEFAULT_PPR_ALL_EVENT_OUTPUT_DIR)
+
+        sensitivity = build_parser().parse_args(
+            ["evaluate-ppr-personalization-sensitivity"]
+        )
+        self.assertEqual(sensitivity.top5_ppr_dir, DEFAULT_PPR_OUTPUT_DIR)
+        self.assertEqual(
+            sensitivity.all_event_ppr_dir, DEFAULT_PPR_ALL_EVENT_OUTPUT_DIR
+        )
+        self.assertEqual(
+            sensitivity.output_dir, DEFAULT_PPR_SENSITIVITY_OUTPUT_DIR
+        )
 
 
 if __name__ == "__main__":

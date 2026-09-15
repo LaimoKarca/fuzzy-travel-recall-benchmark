@@ -1,0 +1,86 @@
+{
+  "evaluation": "phase_02_graph_extensions",
+  "inputs": {
+    "canonical_events": {
+      "path": "data/prepared/stage_02_canonical_events/tokyo_canonical_events_users_with_at_least_10_clean_trails.csv",
+      "sha256": "bbf2f367d4459b0ea97a4b76db1cefd45251b786d14ed8278e6d97f64e8eaa3d"
+    },
+    "core_queries": {
+      "path": "data/prepared/stage_03_queries/tokyo_recall_queries_main.csv",
+      "sha256": "afee3b8052610cf76d8d6fccc8e899c21c289c3de922e59a10f2d475607f479d"
+    },
+    "flat_rankings": {
+      "path": "data/prepared/stage_04_retrieval/flat/tokyo_flat_core_rankings.csv",
+      "sha256": "622858b4adc70551d58b501503c10442942e661409a129d4cf1ae3e349e8cd27"
+    },
+    "onehop_manifest": {
+      "path": "data/prepared/stage_04_retrieval/e5/graph/tokyo_graph_run_manifest.json",
+      "sha256": "bbd2f193e8a9dcb75cd4d1b9587da7f68c0b80f07283ececb4a4d4a76c4b4d25"
+    },
+    "ppr_manifest": {
+      "path": "data/prepared/phase_02_graph_extensions/ppr/tokyo_graph_ppr_run_manifest.json",
+      "sha256": "865e6a3c005cee047ddb3a4bdc3fd9effcaadc9fda57302cfc6b232313419d1d"
+    },
+    "structured_next_manifest": {
+      "path": "data/prepared/phase_02_graph_extensions/structured_next/tokyo_structured_next_run_manifest.json",
+      "sha256": "46a34134920ae4c80aae684d7cb8b8d57e8a9fee019b78d58c4d21d0bcf8134b"
+    },
+    "vector_manifest": {
+      "path": "data/prepared/stage_04_retrieval/e5/vector/tokyo_vector_run_manifest.json",
+      "sha256": "055aed1fc06bbf6d069661e39ac87f785cfe80cf6495cff423a0796afceb2c05"
+    }
+  },
+  "methods": [
+    "flat",
+    "vector",
+    "graph",
+    "graph_ppr_rrf"
+  ],
+  "outputs": {
+    "tokyo_graph_ppr_diagnostic_summary.csv": "5b9d01b27a943633b67cff8447dc554f3078ca90ff8b81eea9275bd68447e79c",
+    "tokyo_graph_ppr_query_diagnostics.csv": "3b3055f0a993ae6fbd48aa3c3eacf99b576616c8cf696f1f165ddfb919418f3a",
+    "tokyo_phase2_core_overall_metrics.csv": "64127032b08c228b89b46f277e006b814513edcddb19d210036a52b0fe2136aa",
+    "tokyo_phase2_metrics_by_query_type.csv": "cdef65168aaf9da483b592a4755b04979cb12af5a09ff6582054fceb4a4c31ac",
+    "tokyo_phase2_pairwise_wilcoxon.csv": "4b7b0d31e6193c17cd84018a93a9227cfc36e0bab2b66f79fcb79a8ee25540bf",
+    "tokyo_phase2_per_query_metrics.csv": "cc44da07b69c6c2b3ace9c0897f9f90d6f083310c5cbd1949d0c0b1e8a0f479f",
+    "tokyo_phase2_validation_report.md": "f4eb5753fdb9131c5642f64a69db53451d2a3ede11cf2c637d82e3a3f06aae3d",
+    "tokyo_structured_next_evaluation.csv": "b98f5cd3702465bb15548b822d2afba2cfcd50d73f6b3da7f772f547b1bf8860"
+  },
+  "parameters": {
+    "benchmark_tier": "core",
+    "distance_buckets": [
+      "0",
+      "1",
+      "2",
+      "3+",
+      "unreachable"
+    ],
+    "holm_comparison_family": [
+      "flat_vs_vector",
+      "vector_vs_graph",
+      "vector_vs_graph_ppr_rrf",
+      "graph_vs_graph_ppr_rrf"
+    ],
+    "metrics": [
+      "mrr",
+      "success_at_1",
+      "success_at_5"
+    ],
+    "ppr_score_atol": 1e-12,
+    "ppr_score_rtol": 1e-10,
+    "wilcoxon": {
+      "alternative": "two-sided",
+      "calculation_method": "approx",
+      "continuity_correction": false,
+      "observation_unit": "per-user Core mean RR",
+      "zero_method": "wilcox"
+    }
+  },
+  "runtime_versions": {
+    "networkx": "3.6.1",
+    "numpy": "2.5.3",
+    "pandas": "2.3.3",
+    "python": "3.12.3",
+    "scipy": "1.18.1"
+  }
+}

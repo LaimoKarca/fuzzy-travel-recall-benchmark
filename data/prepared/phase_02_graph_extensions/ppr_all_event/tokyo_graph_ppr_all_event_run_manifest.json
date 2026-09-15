@@ -1,0 +1,81 @@
+{
+  "analysis_role": "post_hoc_personalization_sensitivity",
+  "dense_seed_model": {
+    "id": "intfloat/multilingual-e5-small",
+    "manifest_sha256": "ee09428910f84718949e2a780fcae3d4caef833860953b0822a900d87e16dc6e",
+    "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3"
+  },
+  "inputs": {
+    "canonical_events": {
+      "path": "data/prepared/stage_02_canonical_events/tokyo_canonical_events_users_with_at_least_10_clean_trails.csv",
+      "sha256": "bbf2f367d4459b0ea97a4b76db1cefd45251b786d14ed8278e6d97f64e8eaa3d"
+    },
+    "core_query_embeddings": {
+      "path": "data/prepared/stage_04_retrieval/e5/vector/tokyo_vector_core_query_embeddings.npy",
+      "sha256": "f2fd6f6f9196a7cb5f8be7441fc956f4f161eec95b04a791e86014c551cd01f8"
+    },
+    "core_query_index": {
+      "path": "data/prepared/stage_04_retrieval/e5/vector/tokyo_vector_core_query_embedding_index.csv",
+      "sha256": "070a8ea68d8b2ab5c23515c9b69809fc90ca0982206a5085715bb810d082d59b"
+    },
+    "core_vector_rankings": {
+      "path": "data/prepared/stage_04_retrieval/e5/vector/tokyo_vector_core_rankings.csv",
+      "sha256": "346ed2b1c9c059f7b5170bea98dc904cae86519d12fc5d5c0ba732cbc4c76ccc"
+    },
+    "event_embeddings": {
+      "path": "data/prepared/stage_04_retrieval/e5/vector/tokyo_vector_event_embeddings.npy",
+      "sha256": "12571e57493f1bc3db6cde40014c77834aa24d0d6bfc747d78c4640de0fada64"
+    },
+    "event_index": {
+      "path": "data/prepared/stage_04_retrieval/e5/vector/tokyo_vector_event_embedding_index.csv",
+      "sha256": "783a50c1b2c29967197c39fa82fdeb829da9a38f34c9effd6137b302f299a457"
+    },
+    "vector_run_manifest": {
+      "path": "data/prepared/stage_04_retrieval/e5/vector/tokyo_vector_run_manifest.json",
+      "sha256": "055aed1fc06bbf6d069661e39ac87f785cfe80cf6495cff423a0796afceb2c05"
+    }
+  },
+  "method": "graph_ppr_rrf_all_event",
+  "outputs": {
+    "tokyo_graph_ppr_all_event_component_audit.csv": "aff94be88f8181728d5e41e6a8bbd73a2fa5b3a72370207e062b78b33baa9795",
+    "tokyo_graph_ppr_all_event_event_scores.csv": "67c0bc1382c6af1d25e49a838b7c59c13e616d0164f07ff3fa9c311815aaf975",
+    "tokyo_graph_ppr_all_event_projection_summary.csv": "8d36eabadd1abf9e8802d65047d6c39a002b878e413087d7a0f238570bb4db68",
+    "tokyo_graph_ppr_all_event_query_audit.csv": "37a80023ffccf31ce4cd00346d25fc4f9553b1361725ae3279c4ea350c7d413a",
+    "tokyo_graph_ppr_all_event_retrieval_summary.csv": "75d3e8e732229d647658b2ef4bf53cce5855547730f00a1a0a49fd38c2204458",
+    "tokyo_graph_ppr_all_event_rrf_core_rankings.csv": "8a2c7ddb2fccebeaf1d6159aaf2751f82d83088209da8ddaa6c1f016dcdca2ab"
+  },
+  "parameters": {
+    "candidate_truncation": "none",
+    "excluded_nodes": [
+      "User"
+    ],
+    "excluded_relations": [
+      "HAS"
+    ],
+    "graph_projection": "per_user_undirected_unweighted",
+    "included_relations": [
+      "AT",
+      "CATEGORY",
+      "IN_TRAIL",
+      "NEXT"
+    ],
+    "personalization": "max(cosine,0) normalized over all same-user Events",
+    "ppr_alpha": 0.5,
+    "ppr_max_iter": 1000,
+    "ppr_output_nodes": "Event only",
+    "ppr_tol": 1e-12,
+    "ppr_weight": null,
+    "rrf_formula": "1/(60+dense_rank)+1/(60+ppr_rank)",
+    "rrf_k": 60,
+    "rrf_ranks_are_one_based": true,
+    "score_comparison_atol": 1e-12,
+    "score_comparison_rtol": 1e-10,
+    "tie_break": "event_id ascending"
+  },
+  "runtime_versions": {
+    "networkx": "3.6.1",
+    "numpy": "2.5.3",
+    "pandas": "2.3.3",
+    "python": "3.12.3"
+  }
+}

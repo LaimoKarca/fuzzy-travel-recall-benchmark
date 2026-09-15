@@ -1,0 +1,37 @@
+{
+  "diagnostic": "structured_next_structured_cue_oracle",
+  "inputs": {
+    "canonical_events": {
+      "path": "data/prepared/stage_02_canonical_events/tokyo_canonical_events_users_with_at_least_10_clean_trails.csv",
+      "sha256": "bbf2f367d4459b0ea97a4b76db1cefd45251b786d14ed8278e6d97f64e8eaa3d"
+    },
+    "core_queries": {
+      "allowed_columns": [
+        "query_id",
+        "user_id",
+        "benchmark_tier",
+        "query_type",
+        "cue_previous_place",
+        "cue_category",
+        "is_high_memory_load"
+      ],
+      "forbidden_candidate_generation_columns": [
+        "target_event_id",
+        "cue_previous_event_id"
+      ],
+      "path": "data/prepared/stage_03_queries/tokyo_recall_queries_main.csv",
+      "sha256": "afee3b8052610cf76d8d6fccc8e899c21c289c3de922e59a10f2d475607f479d"
+    }
+  },
+  "outputs": {
+    "tokyo_structured_next_relational_after_candidates.csv": "848be428a699401c6186085c96255f869bccd65634d33309dfcc20c7467c89cc",
+    "tokyo_structured_next_relational_after_summary.csv": "d9036acc2a5e317a4d4b87b21f13b754a77dbc40e67adb493207145eec3b1eb7"
+  },
+  "parameters": {
+    "anchor": "normalized cue_previous_place equals Event.name",
+    "filter": "normalized cue_category equals successor venue_category",
+    "normalization": "Unicode NFKC, case folding, whitespace collapse",
+    "query_type": "relational_after",
+    "traversal": "outgoing NEXT only"
+  }
+}

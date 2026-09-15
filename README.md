@@ -490,6 +490,64 @@ worsens 1; both directions first reach 55 targets structurally and neither
 changes any Top-1 event. These results are diagnostic and do not introduce a
 fourth main method.
 
+## Phase 2: Graph-PPR-RRF and Structured NEXT oracle
+
+Phase 2 is isolated from the frozen Stage 1--5 results. It adds one formal
+extension configuration and one structured-cue diagnostic without modifying
+the paper or any earlier ranking:
+
+```powershell
+python main.py retrieve-graph-ppr
+python main.py diagnose-structured-next
+python main.py evaluate-graph-extensions
+```
+
+`retrieve-graph-ppr` reuses the frozen E5 embeddings and complete Dense
+rankings. The same five E5 Dense seeds used by Graph-1Hop define a
+cosine-weighted personalization distribution over each user's undirected,
+unweighted Event--POI--Category--Trail--NEXT graph. PageRank uses
+`alpha=0.5`, `tol=1e-12`, `max_iter=1000`, and `weight=None`. Only Event-node
+scores are ranked. The complete PPR ranking is fused with the complete Dense
+ranking using 1-based equal-weight RRF:
+
+```text
+1 / (60 + dense_rank) + 1 / (60 + ppr_rank)
+```
+
+`diagnose-structured-next` handles only the 107 `relational_after` queries. It
+normalizes `cue_previous_place`, anchors matching event names, traverses
+outgoing `NEXT`, and then filters by `cue_category`. Candidate generation does
+not read `cue_previous_event_id` or Ground Truth. This is a structured-cue
+oracle diagnostic of whether the graph preserves the required AFTER relation;
+it is not a general retrieval method.
+
+All outputs are written beneath
+`data/prepared/phase_02_graph_extensions/`. The extended evaluator reports
+four configurations (Flat, E5 Dense, E5 Graph-1Hop-RRF, and E5
+Graph-PPR-RRF), per-query rank changes, any-relation and NEXT-only seed-to-
+target distances, four user-level Wilcoxon comparisons with Holm correction,
+and the Structured NEXT oracle result. Phase 2 parameters are fixed and no
+minimum score is required for acceptance; negative results remain valid.
+
+### Phase 2.1: post-hoc all-event personalization sensitivity
+
+Phase 2.1 tests one narrowly scoped sensitivity after observing the fixed
+Top-5 PPR result. It replaces Top-5 Event personalization with positive cosine
+weights over all same-user Events while holding the E5 embeddings, graph,
+relations, PageRank settings, candidate set, and RRF formula fixed:
+
+```powershell
+python main.py retrieve-graph-ppr-all-event
+python main.py evaluate-ppr-personalization-sensitivity
+```
+
+Outputs are isolated under `phase_02_graph_extensions/ppr_all_event/` and
+`phase_02_graph_extensions/personalization_sensitivity/`. The report keeps raw
+PPR separate from PPR-RRF and stratifies queries by whether the target was
+already in the frozen Dense Top-5. This is explicitly a post-hoc sensitivity,
+not a fifth primary configuration, and it adds no inferential comparison or
+parameter tuning.
+
 ## Data and model attribution
 
 The Tokyo check-ins originate from

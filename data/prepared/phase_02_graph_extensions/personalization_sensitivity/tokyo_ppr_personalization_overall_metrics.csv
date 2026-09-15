@@ -1,0 +1,6 @@
+query_type,configuration,configuration_label,analysis_role,query_count,user_count,mrr,success_at_1,success_at_5
+overall,e5_dense,E5 Dense,frozen_reference,320,108,0.7553577622,0.6187500000,0.9406250000
+overall,top5_raw_ppr,Top-5 Raw PPR,frozen_reference,320,108,0.6088042880,0.4125000000,0.9406250000
+overall,top5_ppr_rrf,Top-5 PPR-RRF,frozen_reference,320,108,0.6745610585,0.4750000000,0.9406250000
+overall,all_event_raw_ppr,All-event Raw PPR,post_hoc_sensitivity,320,108,0.2945316700,0.1593750000,0.4187500000
+overall,all_event_ppr_rrf,All-event PPR-RRF,post_hoc_sensitivity,320,108,0.5386258211,0.3500000000,0.7968750000

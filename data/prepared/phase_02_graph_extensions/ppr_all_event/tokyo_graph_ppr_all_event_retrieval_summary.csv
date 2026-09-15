@@ -1,0 +1,2 @@
+method,benchmark_tier,cohort,query_type,query_count,ranked_candidate_count,min_candidates_per_query,max_candidates_per_query,mean_candidates_per_query,personalization_scope,ppr_alpha,ppr_max_iter,ppr_tol,ppr_weight,rrf_k,rrf_weights,ranking_depth
+graph_ppr_rrf_all_event,core,main,overall,320,15188,20,256,47.4625,all same-user Events with positive cosine mass,0.5,1000,1e-12,None,60,equal,all same-user Events

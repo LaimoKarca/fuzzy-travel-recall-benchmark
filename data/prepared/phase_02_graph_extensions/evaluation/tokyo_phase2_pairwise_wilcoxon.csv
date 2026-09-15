@@ -1,0 +1,5 @@
+comparison,method_a,method_b,observation_unit,observation_count,nonzero_difference_count,mean_rr_method_a,mean_rr_method_b,mean_paired_difference_b_minus_a,wilcoxon_statistic,raw_p_value,holm_adjusted_p_value,alpha,reject_null_holm,status
+flat_vs_vector,flat,vector,per_user_mean_core_reciprocal_rank,108,79,0.9338477366,0.7548957502,-0.1789519865,110.5000000000,0.0000000000,0.0000000000,0.0500000000,True,ok
+vector_vs_graph,vector,graph,per_user_mean_core_reciprocal_rank,108,36,0.7548957502,0.7535596877,-0.0013360624,289.5000000000,0.4937740822,0.4937740822,0.0500000000,False,ok
+vector_vs_graph_ppr_rrf,vector,graph_ppr_rrf,per_user_mean_core_reciprocal_rank,108,79,0.7548957502,0.6752009083,-0.0796948419,427.0000000000,0.0000000169,0.0000000507,0.0500000000,True,ok
+graph_vs_graph_ppr_rrf,graph,graph_ppr_rrf,per_user_mean_core_reciprocal_rank,108,78,0.7535596877,0.6752009083,-0.0783587795,451.0000000000,0.0000000554,0.0000001107,0.0500000000,True,ok

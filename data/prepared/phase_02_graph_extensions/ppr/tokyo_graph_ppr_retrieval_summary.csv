@@ -1,0 +1,7 @@
+method,benchmark_tier,cohort,query_type,query_count,ranked_candidate_count,min_candidates_per_query,max_candidates_per_query,mean_candidates_per_query,dense_seed_count,ppr_alpha,ppr_max_iter,ppr_tol,ppr_weight,rrf_k,rrf_weights,ranking_depth
+graph_ppr_rrf,core,main,relational_after,107,5086,20,256,47.5327102803738,5,0.5,1000,1e-12,None,60,equal,all events belonging to the query user
+graph_ppr_rrf,core,main,semantic,105,4996,20,256,47.5809523809524,5,0.5,1000,1e-12,None,60,equal,all events belonging to the query user
+graph_ppr_rrf,core,main,temporal_spatial,108,5106,20,256,47.2777777777778,5,0.5,1000,1e-12,None,60,equal,all events belonging to the query user
+graph_ppr_rrf,core,high_memory_load,relational_after,35,2760,44,256,78.8571428571429,5,0.5,1000,1e-12,None,60,equal,all events belonging to the query user
+graph_ppr_rrf,core,high_memory_load,semantic,34,2690,44,256,79.1176470588235,5,0.5,1000,1e-12,None,60,equal,all events belonging to the query user
+graph_ppr_rrf,core,high_memory_load,temporal_spatial,35,2760,44,256,78.8571428571429,5,0.5,1000,1e-12,None,60,equal,all events belonging to the query user

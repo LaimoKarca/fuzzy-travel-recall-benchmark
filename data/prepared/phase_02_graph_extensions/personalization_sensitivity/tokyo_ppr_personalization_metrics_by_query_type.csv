@@ -1,0 +1,16 @@
+query_type,configuration,configuration_label,analysis_role,query_count,user_count,mrr,success_at_1,success_at_5
+relational_after,e5_dense,E5 Dense,frozen_reference,107,107,0.6281788907,0.4112149533,0.9252336449
+relational_after,top5_raw_ppr,Top-5 Raw PPR,frozen_reference,107,107,0.5707604441,0.3084112150,0.9252336449
+relational_after,top5_ppr_rrf,Top-5 PPR-RRF,frozen_reference,107,107,0.5582622984,0.2710280374,0.9252336449
+relational_after,all_event_raw_ppr,All-event Raw PPR,post_hoc_sensitivity,107,107,0.3477402814,0.1869158879,0.5420560748
+relational_after,all_event_ppr_rrf,All-event PPR-RRF,post_hoc_sensitivity,107,107,0.5297327585,0.3084112150,0.8598130841
+semantic,e5_dense,E5 Dense,frozen_reference,105,105,0.8917384732,0.8285714286,0.9714285714
+semantic,top5_raw_ppr,Top-5 Raw PPR,frozen_reference,105,105,0.6312666922,0.4666666667,0.9714285714
+semantic,top5_ppr_rrf,Top-5 PPR-RRF,frozen_reference,105,105,0.7723650794,0.6285714286,0.9714285714
+semantic,all_event_raw_ppr,All-event Raw PPR,post_hoc_sensitivity,105,105,0.2780915488,0.1714285714,0.3333333333
+semantic,all_event_ppr_rrf,All-event PPR-RRF,post_hoc_sensitivity,105,105,0.5353263393,0.3809523810,0.7238095238
+temporal_spatial,e5_dense,E5 Dense,frozen_reference,108,108,0.7487666939,0.6203703704,0.9259259259
+temporal_spatial,top5_raw_ppr,Top-5 Raw PPR,frozen_reference,108,108,0.6246574255,0.4629629630,0.9259259259
+temporal_spatial,top5_ppr_rrf,Top-5 PPR-RRF,frozen_reference,108,108,0.6946957357,0.5277777778,0.9259259259
+temporal_spatial,all_event_raw_ppr,All-event Raw PPR,post_hoc_sensitivity,108,108,0.2577991820,0.1203703704,0.3796296296
+temporal_spatial,all_event_ppr_rrf,All-event PPR-RRF,post_hoc_sensitivity,108,108,0.5506443701,0.3611111111,0.8055555556

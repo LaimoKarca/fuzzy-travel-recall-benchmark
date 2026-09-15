@@ -1,0 +1,2 @@
+benchmark_tier,query_type,query_count,users,queries_with_previous_place_anchor,total_previous_place_anchors,queries_with_next_successor,total_next_successors,queries_with_category_match,total_category_matched_candidates,uniquely_selected_query_count,ambiguous_query_count,missing_anchor_query_count,missing_next_query_count,no_category_match_query_count
+core,relational_after,107,107,107,331,107,272,107,107,107,0,0,0,0

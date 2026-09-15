@@ -1,0 +1,59 @@
+{
+  "analysis_role": "post_hoc_sensitivity",
+  "configurations": [
+    "e5_dense",
+    "top5_raw_ppr",
+    "top5_ppr_rrf",
+    "all_event_raw_ppr",
+    "all_event_ppr_rrf"
+  ],
+  "evaluation": "ppr_personalization_sensitivity",
+  "inputs": {
+    "all_event_ppr_manifest": {
+      "path": "data/prepared/phase_02_graph_extensions/ppr_all_event/tokyo_graph_ppr_all_event_run_manifest.json",
+      "sha256": "7f3eede7208ccbf93a27b2a8731207dfcf8e9aad10dc37cddbaf3f060111b127"
+    },
+    "canonical_events": {
+      "path": "data/prepared/stage_02_canonical_events/tokyo_canonical_events_users_with_at_least_10_clean_trails.csv",
+      "sha256": "bbf2f367d4459b0ea97a4b76db1cefd45251b786d14ed8278e6d97f64e8eaa3d"
+    },
+    "core_queries": {
+      "path": "data/prepared/stage_03_queries/tokyo_recall_queries_main.csv",
+      "sha256": "afee3b8052610cf76d8d6fccc8e899c21c289c3de922e59a10f2d475607f479d"
+    },
+    "dense_rankings": {
+      "path": "data/prepared/stage_04_retrieval/e5/vector/tokyo_vector_core_rankings.csv",
+      "sha256": "346ed2b1c9c059f7b5170bea98dc904cae86519d12fc5d5c0ba732cbc4c76ccc"
+    },
+    "top5_ppr_manifest": {
+      "path": "data/prepared/phase_02_graph_extensions/ppr/tokyo_graph_ppr_run_manifest.json",
+      "sha256": "865e6a3c005cee047ddb3a4bdc3fd9effcaadc9fda57302cfc6b232313419d1d"
+    }
+  },
+  "outputs": {
+    "tokyo_frozen_artifact_hash_audit.csv": "8a38868d91455a3192c252e4a196e5eb93f37d539dcfafd0319a8de38537b173",
+    "tokyo_ppr_personalization_metrics_by_query_type.csv": "5206ee94f7c1844d10cd393c56cd4bc6b3596111d3a6d999478c508b090b95dc",
+    "tokyo_ppr_personalization_overall_metrics.csv": "c122d658f14330192d6875b12858bddef531239c4697e7e421801d6388f97ed6",
+    "tokyo_ppr_personalization_per_query.csv": "3ba2cf2a057ed57c807ef70ae8997e757dc71d5f7d46eedddfdbd2346cf609b3",
+    "tokyo_ppr_personalization_rank_diagnostics.csv": "e561a07a2e02e45f38d24c0ce4d3886d65d41d0f455781578f1c5fb43a8c4953",
+    "tokyo_ppr_personalization_validation_report.md": "3cea560a407e4054ce666cff65c0f486655c2ed1f89446b7b801ada65acc68a1"
+  },
+  "parameters": {
+    "inferential_statistics": "none",
+    "metrics": [
+      "mrr",
+      "success_at_1",
+      "success_at_5"
+    ],
+    "strata": [
+      "overall",
+      "target_in_dense_top5",
+      "target_outside_dense_top5"
+    ]
+  },
+  "runtime_versions": {
+    "numpy": "2.5.3",
+    "pandas": "2.3.3",
+    "python": "3.12.3"
+  }
+}

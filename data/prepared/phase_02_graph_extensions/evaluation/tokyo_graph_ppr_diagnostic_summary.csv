@@ -1,0 +1,5 @@
+query_type,query_count,ppr_improved_vs_dense,ppr_unchanged_vs_dense,ppr_worsened_vs_dense,ppr_improved_vs_onehop,ppr_unchanged_vs_onehop,ppr_worsened_vs_onehop,ppr_top1_identical_to_dense,ppr_top1_identical_to_onehop,mean_ppr_rank_gain_vs_dense,mean_ppr_rank_gain_vs_onehop,shortest_any_relation_distance_bucket_0,shortest_any_relation_distance_bucket_1,shortest_any_relation_distance_bucket_2,shortest_any_relation_distance_bucket_3plus,shortest_any_relation_distance_bucket_unreachable,shortest_next_only_distance_bucket_0,shortest_next_only_distance_bucket_1,shortest_next_only_distance_bucket_2,shortest_next_only_distance_bucket_3plus,shortest_next_only_distance_bucket_unreachable
+overall,320,28,203,89,31,201,88,234,234,-0.1562500000,-0.2687500000,301,8,4,6,1,301,8,2,0,9
+relational_after,107,15,62,30,12,63,32,76,76,0.2710280374,-0.2710280374,99,7,0,1,0,99,7,0,0,1
+semantic,105,2,70,33,2,69,34,78,78,-0.6571428571,-0.5809523810,102,0,0,2,1,102,0,0,0,3
+temporal_spatial,108,11,71,26,17,69,22,80,80,-0.0925925926,0.0370370370,100,1,4,3,0,100,1,2,0,5

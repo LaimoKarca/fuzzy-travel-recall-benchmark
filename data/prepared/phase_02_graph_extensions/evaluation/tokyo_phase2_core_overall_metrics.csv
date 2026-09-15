@@ -1,0 +1,5 @@
+benchmark_tier,cohort,query_type,method,method_label,query_count,user_count,mrr,success_at_1,success_at_5
+core,main,overall,flat,Flat BM25,320,108,0.9338020833,0.8875000000,0.9937500000
+core,main,overall,vector,E5 Dense,320,108,0.7553577622,0.6187500000,0.9406250000
+core,main,overall,graph,E5 Graph-1Hop-RRF,320,108,0.7539018029,0.6187500000,0.9343750000
+core,main,overall,graph_ppr_rrf,E5 Graph-PPR-RRF,320,108,0.6745610585,0.4750000000,0.9406250000

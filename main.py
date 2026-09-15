@@ -27,6 +27,26 @@ from src.compare_encoder_runs import (
     EncoderComparisonError,
     compare_encoder_runs,
 )
+from src.retrieve_graph_ppr import (
+    GraphPPRRetrievalError,
+    retrieve_graph_ppr,
+)
+from src.diagnose_structured_next import (
+    StructuredNextDiagnosticError,
+    diagnose_structured_next,
+)
+from src.evaluate_graph_extensions import (
+    GraphExtensionEvaluationError,
+    evaluate_graph_extensions,
+)
+from src.retrieve_graph_ppr_all_event import (
+    GraphPPRAllEventRetrievalError,
+    retrieve_graph_ppr_all_event,
+)
+from src.evaluate_ppr_personalization_sensitivity import (
+    PPRPersonalizationEvaluationError,
+    evaluate_ppr_personalization_sensitivity,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -61,6 +81,12 @@ DEFAULT_ENCODER_COMPARISON_DIR = (
 DEFAULT_GRAPH_DIRECTION_EVALUATION_DIR = (
     PROJECT_ROOT / "data" / "outputs" / "stage_05_graph_direction_ablation"
 )
+DEFAULT_PHASE2_ROOT = DEFAULT_PREPARED_ROOT / "phase_02_graph_extensions"
+DEFAULT_PPR_OUTPUT_DIR = DEFAULT_PHASE2_ROOT / "ppr"
+DEFAULT_STRUCTURED_NEXT_OUTPUT_DIR = DEFAULT_PHASE2_ROOT / "structured_next"
+DEFAULT_PHASE2_EVALUATION_DIR = DEFAULT_PHASE2_ROOT / "evaluation"
+DEFAULT_PPR_ALL_EVENT_OUTPUT_DIR = DEFAULT_PHASE2_ROOT / "ppr_all_event"
+DEFAULT_PPR_SENSITIVITY_OUTPUT_DIR = DEFAULT_PHASE2_ROOT / "personalization_sensitivity"
 DEFAULT_COHORT_INPUT = (
     DEFAULT_COHORT_OUTPUT_DIR
     / "tokyo_checkins_users_with_at_least_10_trails.csv"
@@ -330,6 +356,88 @@ def build_parser() -> argparse.ArgumentParser:
     direction_parser.add_argument(
         "--queries", type=Path, default=DEFAULT_CORE_QUERIES_INPUT,
         help=f"Core queries CSV (default: {DEFAULT_CORE_QUERIES_INPUT})",
+    )
+
+    ppr_parser = subparsers.add_parser(
+        "retrieve-graph-ppr",
+        help="Run the fixed E5 Top-5 heterogeneous PPR plus RRF configuration.",
+    )
+    ppr_parser.add_argument(
+        "--events", type=Path, default=DEFAULT_QUERY_INPUT,
+        help=f"Canonical Main events CSV (default: {DEFAULT_QUERY_INPUT})",
+    )
+    ppr_parser.add_argument(
+        "--vector-dir", type=Path, default=DEFAULT_E5_VECTOR_OUTPUT_DIR,
+        help=f"Frozen E5 Vector directory (default: {DEFAULT_E5_VECTOR_OUTPUT_DIR})",
+    )
+    ppr_parser.add_argument(
+        "--output-dir", type=Path, default=DEFAULT_PPR_OUTPUT_DIR,
+        help=f"Phase 2 PPR output directory (default: {DEFAULT_PPR_OUTPUT_DIR})",
+    )
+
+    oracle_parser = subparsers.add_parser(
+        "diagnose-structured-next",
+        help="Run the relational-after structured-cue NEXT oracle diagnostic.",
+    )
+    oracle_parser.add_argument(
+        "--events", type=Path, default=DEFAULT_QUERY_INPUT,
+        help=f"Canonical Main events CSV (default: {DEFAULT_QUERY_INPUT})",
+    )
+    oracle_parser.add_argument(
+        "--queries", type=Path, default=DEFAULT_CORE_QUERIES_INPUT,
+        help=f"Core queries CSV (default: {DEFAULT_CORE_QUERIES_INPUT})",
+    )
+    oracle_parser.add_argument(
+        "--output-dir", type=Path, default=DEFAULT_STRUCTURED_NEXT_OUTPUT_DIR,
+        help=f"Structured NEXT output directory (default: {DEFAULT_STRUCTURED_NEXT_OUTPUT_DIR})",
+    )
+
+    extension_parser = subparsers.add_parser(
+        "evaluate-graph-extensions",
+        help="Evaluate Dense, one-hop Graph, PPR-RRF, and the NEXT oracle.",
+    )
+    extension_parser.add_argument("--events", type=Path, default=DEFAULT_QUERY_INPUT)
+    extension_parser.add_argument("--queries", type=Path, default=DEFAULT_CORE_QUERIES_INPUT)
+    extension_parser.add_argument("--flat-dir", type=Path, default=DEFAULT_FLAT_OUTPUT_DIR)
+    extension_parser.add_argument("--vector-dir", type=Path, default=DEFAULT_E5_VECTOR_OUTPUT_DIR)
+    extension_parser.add_argument("--onehop-dir", type=Path, default=DEFAULT_E5_GRAPH_OUTPUT_DIR)
+    extension_parser.add_argument("--ppr-dir", type=Path, default=DEFAULT_PPR_OUTPUT_DIR)
+    extension_parser.add_argument(
+        "--structured-next-dir", type=Path, default=DEFAULT_STRUCTURED_NEXT_OUTPUT_DIR
+    )
+    extension_parser.add_argument(
+        "--output-dir", type=Path, default=DEFAULT_PHASE2_EVALUATION_DIR
+    )
+
+    all_event_parser = subparsers.add_parser(
+        "retrieve-graph-ppr-all-event",
+        help="Run the fixed post-hoc all-event PPR personalization sensitivity.",
+    )
+    all_event_parser.add_argument("--events", type=Path, default=DEFAULT_QUERY_INPUT)
+    all_event_parser.add_argument(
+        "--vector-dir", type=Path, default=DEFAULT_E5_VECTOR_OUTPUT_DIR
+    )
+    all_event_parser.add_argument(
+        "--output-dir", type=Path, default=DEFAULT_PPR_ALL_EVENT_OUTPUT_DIR
+    )
+
+    sensitivity_parser = subparsers.add_parser(
+        "evaluate-ppr-personalization-sensitivity",
+        help="Compare frozen Top-5 and post-hoc all-event PPR personalization.",
+    )
+    sensitivity_parser.add_argument("--events", type=Path, default=DEFAULT_QUERY_INPUT)
+    sensitivity_parser.add_argument("--queries", type=Path, default=DEFAULT_CORE_QUERIES_INPUT)
+    sensitivity_parser.add_argument(
+        "--vector-dir", type=Path, default=DEFAULT_E5_VECTOR_OUTPUT_DIR
+    )
+    sensitivity_parser.add_argument(
+        "--top5-ppr-dir", type=Path, default=DEFAULT_PPR_OUTPUT_DIR
+    )
+    sensitivity_parser.add_argument(
+        "--all-event-ppr-dir", type=Path, default=DEFAULT_PPR_ALL_EVENT_OUTPUT_DIR
+    )
+    sensitivity_parser.add_argument(
+        "--output-dir", type=Path, default=DEFAULT_PPR_SENSITIVITY_OUTPUT_DIR
     )
     direction_parser.add_argument(
         "--e5-vector-dir", type=Path, default=DEFAULT_E5_VECTOR_OUTPUT_DIR,
@@ -656,6 +764,95 @@ def main(argv: list[str] | None = None) -> int:
             f"improved={summary.next_only_improved_vs_symmetric:,}, "
             f"unchanged={summary.next_only_unchanged_vs_symmetric:,}, "
             f"worsened={summary.next_only_worsened_vs_symmetric:,}"
+        )
+        print(f"Output directory: {summary.output_dir.resolve()}")
+        return 0
+
+    if args.command == "retrieve-graph-ppr":
+        try:
+            summary = retrieve_graph_ppr(args.events, args.vector_dir, args.output_dir)
+        except GraphPPRRetrievalError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        print("E5 Graph-PPR-RRF retrieval completed.")
+        print(
+            f"Core: {summary.query_count:,} queries, {summary.ranking_count:,} ranking rows, "
+            f"{summary.event_score_count:,} event-score audit rows"
+        )
+        print(f"Per-user projections: {summary.user_count:,}")
+        print(f"Output directory: {summary.output_dir.resolve()}")
+        return 0
+
+    if args.command == "diagnose-structured-next":
+        try:
+            summary = diagnose_structured_next(args.events, args.queries, args.output_dir)
+        except StructuredNextDiagnosticError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        print("Structured NEXT oracle diagnostic completed.")
+        print(
+            f"Relational-after: {summary.query_count:,} queries, "
+            f"{summary.unique_candidate_count:,} unique structured candidates"
+        )
+        print(f"Output directory: {summary.output_dir.resolve()}")
+        return 0
+
+    if args.command == "evaluate-graph-extensions":
+        try:
+            summary = evaluate_graph_extensions(
+                args.events, args.queries, args.flat_dir, args.vector_dir,
+                args.onehop_dir, args.ppr_dir, args.structured_next_dir,
+                args.output_dir,
+            )
+        except GraphExtensionEvaluationError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        print("Phase 2 Graph extension evaluation completed.")
+        print(
+            f"Core: {summary.query_count:,} queries, "
+            f"{summary.per_query_count:,} query-method rows"
+        )
+        print(
+            "PPR-RRF vs Dense: "
+            f"improved={summary.ppr_improved_vs_dense:,}, "
+            f"unchanged={summary.ppr_unchanged_vs_dense:,}, "
+            f"worsened={summary.ppr_worsened_vs_dense:,}"
+        )
+        print(f"Structured NEXT unique correct: {summary.structured_unique_correct:,}/107")
+        print(f"Output directory: {summary.output_dir.resolve()}")
+        return 0
+
+    if args.command == "retrieve-graph-ppr-all-event":
+        try:
+            summary = retrieve_graph_ppr_all_event(
+                args.events, args.vector_dir, args.output_dir
+            )
+        except GraphPPRAllEventRetrievalError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        print("All-event PPR personalization sensitivity retrieval completed.")
+        print(
+            f"Core: {summary.query_count:,} queries, {summary.ranking_count:,} ranking rows, "
+            f"{summary.event_score_count:,} event-score rows"
+        )
+        print(f"Component audit: {summary.component_audit_count:,} rows")
+        print(f"Output directory: {summary.output_dir.resolve()}")
+        return 0
+
+    if args.command == "evaluate-ppr-personalization-sensitivity":
+        try:
+            summary = evaluate_ppr_personalization_sensitivity(
+                args.events, args.queries, args.vector_dir, args.top5_ppr_dir,
+                args.all_event_ppr_dir, args.output_dir,
+            )
+        except PPRPersonalizationEvaluationError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        print("PPR personalization sensitivity evaluation completed.")
+        print(
+            f"Core MRR: Dense={summary.dense_mrr:.4f}, "
+            f"Top-5 PPR-RRF={summary.top5_mrr:.4f}, "
+            f"All-event PPR-RRF={summary.all_event_mrr:.4f}"
         )
         print(f"Output directory: {summary.output_dir.resolve()}")
         return 0

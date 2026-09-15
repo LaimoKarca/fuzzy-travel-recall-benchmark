@@ -1,0 +1,13 @@
+benchmark_tier,cohort,query_type,method,method_label,query_count,user_count,mrr,success_at_1,success_at_5
+core,main,relational_after,flat,Flat BM25,107,107,0.8444704050,0.7383177570,0.9906542056
+core,main,relational_after,vector,E5 Dense,107,107,0.6281788907,0.4112149533,0.9252336449
+core,main,relational_after,graph,E5 Graph-1Hop-RRF,107,107,0.6303621353,0.4112149533,0.9345794393
+core,main,relational_after,graph_ppr_rrf,E5 Graph-PPR-RRF,107,107,0.5582622984,0.2710280374,0.9252336449
+core,main,semantic,flat,Flat BM25,105,105,0.9857142857,0.9714285714,1.0000000000
+core,main,semantic,vector,E5 Dense,105,105,0.8917384732,0.8285714286,0.9714285714
+core,main,semantic,graph,E5 Graph-1Hop-RRF,105,105,0.8916896502,0.8285714286,0.9714285714
+core,main,semantic,graph_ppr_rrf,E5 Graph-PPR-RRF,105,105,0.7723650794,0.6285714286,0.9714285714
+core,main,temporal_spatial,flat,Flat BM25,108,108,0.9718364198,0.9537037037,0.9907407407
+core,main,temporal_spatial,vector,E5 Dense,108,108,0.7487666939,0.6203703704,0.9259259259
+core,main,temporal_spatial,graph,E5 Graph-1Hop-RRF,108,108,0.7423371775,0.6203703704,0.8981481481
+core,main,temporal_spatial,graph_ppr_rrf,E5 Graph-PPR-RRF,108,108,0.6946957357,0.5277777778,0.9259259259
