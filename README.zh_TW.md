@@ -224,7 +224,7 @@ Core Main 結果：
 | E5 Dense | 0.7554 | 0.6188 | 0.9406 |
 | Graph-1Hop-RRF | 0.7539 | 0.6188 | 0.9344 |
 
-在 320 題 Core 中，Graph-1Hop-RRF 相較 E5 Dense 有 12 題改善、280 題不變、28 題退步。由 `PREVIOUS` 或 `NEXT` 首次觸及的 target 為 59 題，較封存 MiniLM sensitivity run 的 7 題增加，但 E5 Dense 與 Graph-1Hop-RRF 的 320 個 Top-1 事件仍完全相同。這表示在固定一跳 RRF 配置下，結構可達性沒有轉換成 decision-level gain。
+在 320 題 Core 中，Graph-1Hop-RRF 相較 E5 Dense 有 12 題改善、280 題不變、28 題退步。由 `PREVIOUS` 或 `NEXT` 首次觸及的 target 為 59 題，較封存 MiniLM sensitivity run 的 7 題增加。由於最高排名的 Dense seed 會透過 `SELF` 固定取得 expansion rank 1，因此等權 RRF 會依配置保留 Dense Top-1。增加的結構可達性在此固定一跳 RRF 配置下，仍未改善整體排序品質。
 
 主要輸出：
 
@@ -261,8 +261,9 @@ Graph-1Hop-RRF／E5 Dense 來源關係及來源 hashes，並產生四列 Core �
 E5 執行產生 `(5106, 384)`、`(320, 384)`、`(98, 384)` 三組 arrays，
 且沒有截斷。E5 Dense Core MRR 為 0.7554，MiniLM 為 0.7908；E5
 Graph-1Hop-RRF 為 0.7539，MiniLM Graph-1Hop-RRF 為 0.7883。E5 使 Core
-target 首次經 NEXT 找到的數量由 6 增至 57，但 320 題的 Dense／
-Graph-1Hop-RRF Top-1 仍完全相同。MiniLM 僅作為 encoder sensitivity 證據，不再列入主結果表。
+target 首次經 NEXT 找到的數量由 6 增至 57。由於最高排名的 Dense seed
+也會透過 `SELF` 取得 expansion rank 1，320 題的 Dense／Graph-1Hop-RRF
+Top-1 依配置維持完全相同。MiniLM 僅作為 encoder sensitivity 證據，不再列入主結果表。
 
 ## 測試
 

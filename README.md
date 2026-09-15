@@ -397,9 +397,10 @@ Core Main results:
 For the 320 Core queries, Graph-1Hop-RRF improves 12
 target ranks relative to E5 Dense, leaves 280 unchanged, and worsens 28.
 Fifty-nine targets are first reached through `PREVIOUS` or `NEXT`, compared
-with seven in the archived MiniLM sensitivity run, yet E5 Dense and
-Graph-1Hop-RRF still return the same Top-1 event for all 320 queries. Structural reachability
-therefore did not translate into decision-level gains under this fixed
+with seven in the archived MiniLM sensitivity run. Because the highest-ranked
+Dense seed is assigned expansion rank 1 through `SELF`, equal-weight RRF
+preserves the Dense Top-1 event by construction. The increased structural
+reach therefore did not improve aggregate ranking quality under this fixed
 one-hop RRF configuration.
 
 ## Encoder sensitivity archive (MiniLM versus E5)
@@ -433,9 +434,10 @@ E5 produced `(5106, 384)`, `(320, 384)`, and
 `(98, 384)` event/Core/Between arrays with no truncations. Its Core Dense MRR
 was 0.7554 versus MiniLM's 0.7908. E5 Graph-1Hop-RRF MRR was 0.7539 versus
 MiniLM Graph-1Hop-RRF's 0.7883. E5 increased Core targets first reached
-through `NEXT` from 6 to 57, but the Dense and Graph-1Hop-RRF runs retained
-identical Top-1 events for all 320 Core
-queries. MiniLM remains sensitivity evidence rather than a main-table method.
+through `NEXT` from 6 to 57. By construction, the Dense and Graph-1Hop-RRF
+runs retained identical Top-1 events for all 320 Core queries because the
+highest-ranked Dense seed also receives expansion rank 1 through `SELF`.
+MiniLM remains sensitivity evidence rather than a main-table method.
 
 ## Tests
 
